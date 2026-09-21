@@ -1,0 +1,19 @@
+skip_local_validator = true
+
+[toolchain]
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+enclavekit = "dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "cargo test"
+
+[hooks]
