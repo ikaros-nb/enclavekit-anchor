@@ -1,6 +1,7 @@
 [workspace]
 members = [
-    "programs/*"
+    "programs/enclavekit",
+    "crates/enclavekit-encoding",
 ]
 resolver = "2"
 
