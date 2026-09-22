@@ -39,7 +39,7 @@ pub const PRECOMPILE_DATA_START: usize = PRECOMPILE_OFFSETS_START + PRECOMPILE_O
 /// instruction itself, the only value we accept.
 /// 
 /// See `get_data_slice`: https://github.com/anza-xyz/agave/blob/v3.1.8/precompiles/src/secp256r1.rs
-/// ```
+/// ```text
 /// let instruction = if instruction_index == u16::MAX {
 /// data
 /// } else {
