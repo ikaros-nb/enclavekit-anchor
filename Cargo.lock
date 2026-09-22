@@ -1366,6 +1366,7 @@ dependencies = [
  "solana-instructions-sysvar 4.0.0",
  "solana-keypair",
  "solana-message",
+ "solana-precompile-error",
  "solana-secp256r1-program",
  "solana-signer",
  "solana-transaction",
