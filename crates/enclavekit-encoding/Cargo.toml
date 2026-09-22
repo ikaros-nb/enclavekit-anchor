@@ -5,3 +5,5 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+borsh = { version = "1.8.1", features = ["derive"] }
+sha2 = "0.11.0"

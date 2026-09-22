@@ -1226,6 +1226,10 @@ dependencies = [
 [[package]]
 name = "enclavekit-encoding"
 version = "0.1.0"
+dependencies = [
+ "borsh",
+ "sha2 0.11.0",
+]
 
 [[package]]
 name = "enum-iterator"
