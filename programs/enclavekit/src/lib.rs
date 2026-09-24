@@ -1,3 +1,4 @@
+pub mod authorization;
 pub mod constants;
 pub mod error;
 pub mod instructions;

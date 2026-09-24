@@ -2,13 +2,13 @@ use anchor_lang::{
     prelude::*,
     system_program::{Transfer, transfer},
 };
-use solana_sha256_hasher::hash;
 
 use crate::{
-    COMPRESSED_PUBKEY_LEN, Guardian, MAX_GUARDIANS, SmartWallet, VAULT_SEED, WALLET_SEED, error::EnclaveKitError, precompile::load_secp256r1_payload,
+    SmartWallet, VAULT_SEED, WALLET_SEED,
+    authorization::{Authorization, verify_enclave_authorization},
 };
 
-use enclavekit_encoding::{action::Action, preimage::Preimage};
+use enclavekit_encoding::action::Action;
 
 #[derive(Accounts)]
 #[instruction(wallet_id: [u8; 32])]
@@ -55,44 +55,16 @@ impl<'info> TransferSol<'info> {
         relayer_fee: u64,
         bumps: &TransferSolBumps,
     ) -> Result<()> {
-        let payload = load_secp256r1_payload(&self.instructions_sysvar)?;
-
-        if self.wallet.active_key == [0u8; COMPRESSED_PUBKEY_LEN] {
-            require!(
-                hash(&payload.pubkey).to_bytes() == wallet_id,
-                EnclaveKitError::WalletIdMismatch
-            );
-
-            self.wallet.set_inner(SmartWallet {
-                wallet_id,
-                active_key: payload.pubkey,
-                nonce: 0,
-                attested: false,
-                rotation: None,
-                guardians: [Guardian::None; MAX_GUARDIANS],
-                state_bump: bumps.wallet,
-                vault_bump: bumps.vault,
-            });
-        } else {
-            require!(payload.pubkey == self.wallet.active_key, EnclaveKitError::KeyMismatch);
-        }
-
-        require!(nonce == self.wallet.nonce, EnclaveKitError::NonceMismatch);
-        require!(expires_at > Clock::get()?.unix_timestamp, EnclaveKitError::AuthorizationExpired);
-
         let action = Action::TransferSol { to: self.to.key().to_bytes(), lamports };
-        let expected = Preimage {
-            program_id: crate::ID.to_bytes(),
-            wallet_id, nonce, expires_at, max_relayer_fee,
-            action: &action,
-        };
-        require!(expected.to_bytes() == payload.message, EnclaveKitError::PreimageMismatch);
-
-        self.wallet.nonce = self
-            .wallet
-            .nonce
-            .checked_add(1)
-            .ok_or(ProgramError::ArithmeticOverflow)?;
+        let authorization = Authorization { wallet_id, nonce, expires_at, max_relayer_fee };
+        verify_enclave_authorization(
+            &mut self.wallet,
+            &self.instructions_sysvar,
+            &authorization,
+            &action,
+            bumps.wallet,
+            bumps.vault,
+        )?;
 
         let seeds = &[
             &VAULT_SEED[..],
