@@ -67,7 +67,7 @@ impl<'info> TransferSol<'info> {
         )?;
 
         let seeds = &[
-            &VAULT_SEED[..],
+            VAULT_SEED,
             wallet_id.as_ref(),
             &[self.wallet.vault_bump]
         ];

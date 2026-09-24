@@ -23,7 +23,7 @@ pub fn verify_enclave_authorization(
     state_bump: u8,
     vault_bump: u8,
 ) -> Result<()> {
-    let payload = load_secp256r1_payload(&instructions_sysvar)?;
+    let payload = load_secp256r1_payload(instructions_sysvar)?;
 
     if wallet.active_key == [0u8; COMPRESSED_PUBKEY_LEN] {
         require!(
@@ -38,8 +38,8 @@ pub fn verify_enclave_authorization(
             attested: false,
             rotation: None,
             guardians: [Guardian::None; MAX_GUARDIANS],
-            state_bump: state_bump,
-            vault_bump: vault_bump,
+            state_bump,
+            vault_bump,
         };
     } else {
         require!(payload.pubkey == wallet.active_key, EnclaveKitError::KeyMismatch);
@@ -54,7 +54,7 @@ pub fn verify_enclave_authorization(
         nonce: auth.nonce,
         expires_at: auth.expires_at,
         max_relayer_fee: auth.max_relayer_fee,
-        action: &action,
+        action,
     };
     require!(expected.to_bytes() == payload.message, EnclaveKitError::PreimageMismatch);
 
