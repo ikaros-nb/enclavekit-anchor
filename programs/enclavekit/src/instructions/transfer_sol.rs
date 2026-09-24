@@ -1,4 +1,7 @@
-use anchor_lang::prelude::*;
+use anchor_lang::{
+    prelude::*,
+    system_program::{Transfer, transfer},
+};
 use solana_sha256_hasher::hash;
 
 use crate::{
@@ -92,6 +95,36 @@ impl<'info> TransferSol<'info> {
             .checked_add(1)
             .ok_or(ProgramError::ArithmeticOverflow)?;
 
+        let seeds = &[
+            &VAULT_SEED[..],
+            wallet_id.as_ref(),
+            &[self.wallet.vault_bump]
+        ];
+        let signer_seeds = &[&seeds[..]];
+        
+        transfer(
+            CpiContext::new_with_signer(
+                self.system_program.key(),
+                Transfer {
+                    from: self.vault.to_account_info(),
+                    to: self.to.to_account_info(),
+                },
+                signer_seeds
+            ),
+            lamports,
+        )?;
+
+        transfer(
+            CpiContext::new_with_signer(
+                self.system_program.key(),
+                Transfer {
+                    from: self.vault.to_account_info(),
+                    to: self.relayer.to_account_info(),
+                },
+                signer_seeds
+            ),
+            relayer_fee.min(max_relayer_fee),
+        )?;
         Ok(())
     }
 }
