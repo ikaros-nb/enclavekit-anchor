@@ -1,12 +1,18 @@
 mod common;
 
+use anchor_lang::error::ErrorCode;
 use anchor_lang::prelude::Pubkey;
 use anchor_lang::solana_program::instruction::Instruction;
-use common::{assert_program_error, vault_pda, wallet_pda, EnclaveKey, Env, TransferSolRequest};
+use common::{
+    assert_failed_at, assert_program_error, vault_pda, wallet_pda, EnclaveKey, Env,
+    TransferSolRequest, PROGRAM_INDEX,
+};
 use enclavekit::error::EnclaveKitError;
 use enclavekit_encoding::preimage::PROGRAM_ID_OFFSET;
 use litesvm::types::{FailedTransactionMetadata, TransactionMetadata};
 use solana_signer::Signer;
+use solana_system_interface::error::SystemError;
+use solana_transaction_error::TransactionError;
 
 const VAULT_FUNDING: u64 = 1_000_000_000;
 const LAMPORTS: u64 = 100_000_000;
@@ -21,10 +27,15 @@ struct Scenario {
 
 impl Scenario {
     fn new() -> Self {
+        Self::with_vault(VAULT_FUNDING)
+    }
+
+    /// Same scenario with a chosen vault balance
+    fn with_vault(funding: u64) -> Self {
         let mut env = Env::new();
         let key = EnclaveKey::from_seed([7u8; 32]);
         let wallet_id = key.wallet_id();
-        env.svm.airdrop(&vault_pda(&wallet_id), VAULT_FUNDING).unwrap();
+        env.svm.airdrop(&vault_pda(&wallet_id), funding).unwrap();
 
         let request = TransferSolRequest {
             wallet_id,
@@ -266,4 +277,60 @@ fn rejects_a_signature_over_another_program_id() {
 
     let failed = scenario.try_send_with_preimage(&signed, &request).unwrap_err();
     assert_program_error(&failed, EnclaveKitError::PreimageMismatch);
+}
+
+// Failures raised by Anchor
+
+#[test]
+fn rejects_a_refund_account_that_did_not_sign() {
+    // Second action on purpose: on the first one `init_if_needed` would CPI
+    // into System with the relayer as payer and the runtime would refuse
+    // with PrivilegeEscalation before Anchor's Signer check is reached.
+    let mut scenario = Scenario::new();
+    let first = scenario.request.clone();
+    scenario.send(&first);
+
+    // A stranger claims the refund without signing. It must differ from the
+    // fee payer: the same key in both roles would be merged back into a signer.
+    let stranger = Pubkey::new_unique();
+    let second = TransferSolRequest { nonce: 1, ..first };
+    let mut instructions = second.sign(&scenario.key, &stranger);
+    instructions[PROGRAM_INDEX as usize]
+        .accounts
+        .iter_mut()
+        .find(|meta| meta.pubkey == stranger)
+        .expect("the relayer is one of the accounts")
+        .is_signer = false;
+
+    let failed = scenario.try_send_raw(&instructions).unwrap_err();
+    let code = ErrorCode::AccountNotSigner as u32;
+    assert_failed_at(&failed, PROGRAM_INDEX, &format!("Custom({code})"));
+}
+
+#[test]
+fn rejects_when_the_vault_cannot_cover_the_amount() {
+    let mut scenario = Scenario::with_vault(LAMPORTS - 1);
+    let request = scenario.request.clone();
+
+    let failed = scenario.try_send(&request).unwrap_err();
+    // The first CPI fails inside System; its error surfaces as ours.
+    let code = SystemError::ResultWithNegativeLamports as u32;
+    assert_failed_at(&failed, PROGRAM_INDEX, &format!("Custom({code})"));
+}
+
+#[test]
+fn rejects_when_the_vault_would_be_left_below_rent() {
+    // Both CPIs succeed and leave 1 lamport in the vault. A system account
+    // must hold the rent-exempt minimum or exactly 0, so the runtime rejects
+    // the whole transaction at the end, without any InstructionError.
+    let mut scenario = Scenario::with_vault(LAMPORTS + RELAYER_FEE + 1);
+    let request = scenario.request.clone();
+
+    let failed = scenario.try_send(&request).unwrap_err();
+    assert!(
+        matches!(failed.err, TransactionError::InsufficientFundsForRent { .. }),
+        "expected InsufficientFundsForRent, got {:?}\n{:#?}",
+        failed.err,
+        failed.meta.logs
+    );
 }

@@ -1371,6 +1371,7 @@ dependencies = [
  "solana-secp256r1-program",
  "solana-sha256-hasher",
  "solana-signer",
+ "solana-system-interface 3.2.0",
  "solana-transaction",
  "solana-transaction-error",
 ]
