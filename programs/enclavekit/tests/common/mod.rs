@@ -2,11 +2,12 @@
 #![allow(dead_code)]
 
 use anchor_lang::prelude::{Clock, Pubkey};
+use anchor_lang::solana_program::instruction::error::InstructionError;
 use anchor_lang::solana_program::{instruction::Instruction, system_program};
 use anchor_lang::{AccountDeserialize, InstructionData, ToAccountMetas};
-use enclavekit::{state::SmartWallet, VAULT_SEED, WALLET_SEED};
+use enclavekit::{error::EnclaveKitError, state::SmartWallet, VAULT_SEED, WALLET_SEED};
 use enclavekit_encoding::{action::Action, preimage::Preimage, wallet::wallet_id};
-use litesvm::LiteSVM;
+use litesvm::{LiteSVM, types::FailedTransactionMetadata};
 use p256::ecdsa::{signature::Signer as _, Signature, SigningKey};
 use p256::elliptic_curve::sec1::ToSec1Point;
 use solana_keypair::Keypair;
@@ -14,6 +15,7 @@ use solana_message::{Message, VersionedMessage};
 use solana_secp256r1_program::new_secp256r1_instruction_with_signature;
 use solana_signer::Signer;
 use solana_transaction::versioned::VersionedTransaction;
+use solana_transaction_error::TransactionError;
 
 /// A P-256 key standing in for the Secure Enclave.
 pub struct EnclaveKey(SigningKey);
@@ -142,6 +144,8 @@ impl Env {
         &mut self,
         instructions: &[Instruction],
     ) -> Result<litesvm::types::TransactionMetadata, litesvm::types::FailedTransactionMetadata> {
+        // A fresh blockhash makes every send a distinct transaction.
+        self.svm.expire_blockhash();
         let blockhash = self.svm.latest_blockhash();
         let message = Message::new_with_blockhash(
             instructions, 
@@ -169,4 +173,31 @@ impl Env {
     pub fn unix_timestamp(&self) -> i64 {
         self.svm.get_sysvar::<Clock>().unix_timestamp
     }
+}
+
+/// Index of `transfer_sol` in the transactions the tests build: precompile
+/// first, program second.
+pub const PROGRAM_INDEX: u8 = 1;
+
+/// Loose check on the Debug output, for errors raised by the runtime or by
+/// another program (`InvalidArgument`, `Custom(1)` from System, ...).
+pub fn assert_failed_at(failed: &FailedTransactionMetadata, index: u8, expected: &str) {
+    let actual = format!("{:?}", failed.err);
+    let prefix = format!("InstructionError({index}, ");
+    assert!(
+        actual.starts_with(&prefix) && actual.contains(expected),
+        "expected failure at instruction {index} with {expected}, got {actual}\n{:#?}",
+        failed.meta.logs
+    );
+}
+
+/// Exact check: `transfer_sol` refused with this EnclaveKit error.
+pub fn assert_program_error(failed: &FailedTransactionMetadata, expected: EnclaveKitError) {
+    let expected_err =
+        TransactionError::InstructionError(PROGRAM_INDEX, InstructionError::Custom(expected.into()));
+    assert_eq!(
+        failed.err, expected_err,
+        "expected {expected:?}\n{:#?}",
+        failed.meta.logs
+    );
 }

@@ -1,8 +1,10 @@
 mod common;
 
 use anchor_lang::prelude::Pubkey;
-use common::{vault_pda, wallet_pda, EnclaveKey, Env, TransferSolRequest};
-use litesvm::types::TransactionMetadata;
+use anchor_lang::solana_program::instruction::Instruction;
+use common::{assert_program_error, vault_pda, wallet_pda, EnclaveKey, Env, TransferSolRequest};
+use enclavekit::error::EnclaveKitError;
+use litesvm::types::{FailedTransactionMetadata, TransactionMetadata};
 use solana_signer::Signer;
 
 const VAULT_FUNDING: u64 = 1_000_000_000;
@@ -39,11 +41,29 @@ impl Scenario {
         self.env.payer.pubkey()
     }
 
+    /// Happy-path send: panics with the logs if the transaction fails.
     fn send(&mut self, request: &TransferSolRequest) -> TransactionMetadata {
-        let instructions = request.sign(&self.key, &self.relayer());
-        self.env
-            .send(&instructions)
+        self.try_send(request)
             .unwrap_or_else(|failed| panic!("{:?}\n{:#?}", failed.err, failed.meta.logs))
+    }
+    
+    /// Signs with the scenario key and sends; the caller decides what a
+    /// failure means.
+    fn try_send(
+        &mut self,
+        request: &TransferSolRequest,
+    ) -> Result<TransactionMetadata, FailedTransactionMetadata> {
+        let instructions = request.sign(&self.key, &self.relayer());
+        self.try_send_raw(&instructions)
+    }
+
+    /// For transactions whose precompile and program instructions do not come
+    /// from the same request (tampered preimage, other key, ...).
+    fn try_send_raw(
+        &mut self,
+        instructions: &[Instruction],
+    ) -> Result<TransactionMetadata, FailedTransactionMetadata> {
+        self.env.send(instructions)
     }
 }
 
@@ -97,4 +117,36 @@ fn second_action_uses_the_next_nonce() {
         scenario.env.balance(&vault_pda(&first.wallet_id)),
         VAULT_FUNDING - 2 * (LAMPORTS + RELAYER_FEE)
     );
+}
+
+// Negative paths: each one clones the valid request and changes one thing.
+
+#[test]
+fn rejects_a_replayed_nonce() {
+    todo!("first send, then the same request again: NonceMismatch")
+}
+
+#[test]
+fn rejects_a_nonce_ahead_of_the_counter() {
+    todo!("first send, then nonce 2: NonceMismatch")
+}
+
+#[test]
+fn rejects_an_expired_authorization() {
+    todo!("expires_at in the past: AuthorizationExpired")
+}
+
+#[test]
+fn rejects_another_key_on_first_use() {
+    todo!("sign with another P-256 key, same wallet_id: WalletIdMismatch")
+}
+
+#[test]
+fn rejects_another_key_once_the_wallet_exists() {
+    todo!("first send, then sign with another key: KeyMismatch")
+}
+
+#[test]
+fn caps_the_refund_at_max_relayer_fee() {
+    todo!("relayer_fee above the cap: vault only loses LAMPORTS + MAX_RELAYER_FEE")
 }

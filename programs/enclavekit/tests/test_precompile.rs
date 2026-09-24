@@ -4,9 +4,8 @@ use anchor_lang::{
     prelude::Pubkey,
     solana_program::{instruction::Instruction, system_instruction},
 };
-use common::{EnclaveKey, Env, TransferSolRequest};
+use common::{assert_failed_at, assert_program_error, EnclaveKey, Env, TransferSolRequest};
 use enclavekit::{constants::SECP256R1_MESSAGE_OFFSET, error::EnclaveKitError};
-use litesvm::types::FailedTransactionMetadata;
 use solana_precompile_error::PrecompileError;
 use solana_signer::Signer;
 
@@ -23,16 +22,6 @@ fn transfer_sol_instruction(relayer: &Pubkey) -> Instruction {
         relayer_fee: 0,
     }
     .instruction(relayer)
-}
-
-fn assert_failed_at(failed: &FailedTransactionMetadata, index: u8, expected: &str) {
-    let actual = format!("{:?}", failed.err);
-    let prefix = format!("InstructionError({index}, ");
-    assert!(
-        actual.starts_with(&prefix) && actual.contains(expected),
-        "expected failure at instruction {index} with {expected}, got {actual}\n{:#?}",
-        failed.meta.logs
-    );
 }
 
 #[test]
@@ -56,8 +45,7 @@ fn fails_when_the_instruction_before_is_not_the_precompile() {
         transfer_sol_instruction(&payer),
     ]).unwrap_err();
 
-    let code = u32::from(EnclaveKitError::PrecompileProgramMismatch);
-    assert_failed_at(&failed, 1, &format!("Custom({code})"));
+    assert_program_error(&failed, EnclaveKitError::PrecompileProgramMismatch);
 }
 
 #[test]
