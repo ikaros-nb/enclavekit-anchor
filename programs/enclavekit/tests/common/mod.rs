@@ -45,6 +45,17 @@ impl EnclaveKey {
         let sig_bytes: [u8; 64] = signature.normalize_s().to_bytes().into();
         new_secp256r1_instruction_with_signature(message, &sig_bytes, &self.compressed_pubkey())
     }
+
+    /// Same signature with `s` replaced by `n - s`: still a valid ECDSA
+    /// signature mathematically, but high-S, which the runtime refuses.
+    pub fn precompile_instruction_high_s(&self, message: &[u8]) -> Instruction {
+        let signature: Signature = self.0.sign(message);
+        let (r, s) = signature.normalize_s().split_scalars();
+        let high = Signature::from_scalars(r.to_bytes(), (-*s).to_bytes())
+            .expect("n - s is a valid non-zero scalar");
+        let sig_bytes: [u8; 64] = high.to_bytes().into();
+        new_secp256r1_instruction_with_signature(message, &sig_bytes, &self.compressed_pubkey())
+    }
 }
 
 pub fn wallet_pda(wallet_id: &[u8; 32]) -> Pubkey {
@@ -193,8 +204,17 @@ pub fn assert_failed_at(failed: &FailedTransactionMetadata, index: u8, expected:
 
 /// Exact check: `transfer_sol` refused with this EnclaveKit error.
 pub fn assert_program_error(failed: &FailedTransactionMetadata, expected: EnclaveKitError) {
+    assert_program_error_at(failed, PROGRAM_INDEX, expected);
+}
+
+/// Same, for transactions where `transfer_sol` is not at `PROGRAM_INDEX`.
+pub fn assert_program_error_at(
+    failed: &FailedTransactionMetadata,
+    index: u8,
+    expected: EnclaveKitError,
+) {
     let expected_err =
-        TransactionError::InstructionError(PROGRAM_INDEX, InstructionError::Custom(expected.into()));
+        TransactionError::InstructionError(index, InstructionError::Custom(expected.into()));
     assert_eq!(
         failed.err, expected_err,
         "expected {expected:?}\n{:#?}",

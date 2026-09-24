@@ -4,8 +4,14 @@ use anchor_lang::{
     prelude::Pubkey,
     solana_program::{instruction::Instruction, system_instruction},
 };
-use common::{assert_failed_at, assert_program_error, EnclaveKey, Env, TransferSolRequest};
-use enclavekit::{constants::SECP256R1_MESSAGE_OFFSET, error::EnclaveKitError};
+use common::{
+    assert_failed_at, assert_program_error, assert_program_error_at, EnclaveKey, Env,
+    TransferSolRequest,
+};
+use enclavekit::{
+    constants::{PRECOMPILE_OFFSETS_START, SECP256R1_MESSAGE_OFFSET},
+    error::EnclaveKitError,
+};
 use solana_precompile_error::PrecompileError;
 use solana_signer::Signer;
 
@@ -54,6 +60,59 @@ fn runtime_rejects_a_tampered_message_before_the_program_runs() {
     let mut precompile = key.precompile_instruction(b"hello enclave");
     // flip one bit of the first message byte: the signature no longer matches
     precompile.data[SECP256R1_MESSAGE_OFFSET] ^= 1;
+
+    let mut env = Env::new();
+    let relayer = env.payer.pubkey();
+    let failed = env
+        .send(&[precompile, transfer_sol_instruction(&relayer)])
+        .unwrap_err();
+
+    let code = PrecompileError::InvalidSignature as u32;
+    assert_failed_at(&failed, 0, &format!("Custom({code})"));
+}
+
+#[test]
+fn fails_when_the_precompile_is_not_right_before() {
+    // A valid precompile two slots earlier does not count: the program only
+    // reads `current - 1`.
+    let key = EnclaveKey::from_seed([7u8; 32]);
+    let mut env = Env::new();
+    let payer = env.payer.pubkey();
+    let failed = env
+        .send(&[
+            key.precompile_instruction(b"hello enclave"),
+            system_instruction::transfer(&payer, &payer, 1),
+            transfer_sol_instruction(&payer),
+        ])
+        .unwrap_err();
+
+    assert_program_error_at(&failed, 2, EnclaveKitError::PrecompileProgramMismatch);
+}
+
+#[test]
+fn rejects_offsets_pointing_at_another_instruction() {
+    let key = EnclaveKey::from_seed([7u8; 32]);
+    let mut precompile = key.precompile_instruction(b"hello enclave");
+    // `message_instruction_index` is the seventh u16 of the offsets block.
+    // Pointing it at instruction 0, i.e. this very instruction, keeps the
+    // runtime happy: it reads the same bytes. The program must still refuse,
+    // it only trusts data that lives in the precompile instruction itself.
+    let at = PRECOMPILE_OFFSETS_START + 2 * 6;
+    precompile.data[at..at + 2].copy_from_slice(&0u16.to_le_bytes());
+
+    let mut env = Env::new();
+    let relayer = env.payer.pubkey();
+    let failed = env
+        .send(&[precompile, transfer_sol_instruction(&relayer)])
+        .unwrap_err();
+
+    assert_program_error(&failed, EnclaveKitError::PrecompileLayoutMismatch);
+}
+
+#[test]
+fn runtime_rejects_a_high_s_signature() {
+    let key = EnclaveKey::from_seed([7u8; 32]);
+    let precompile = key.precompile_instruction_high_s(b"hello enclave");
 
     let mut env = Env::new();
     let relayer = env.payer.pubkey();
