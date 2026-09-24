@@ -28,7 +28,7 @@ pub struct PendingRotation {
     pub proposed_by: u8,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, InitSpace, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, InitSpace, Clone, Copy)]
 pub enum Guardian {
     None,
     /// Another Apple device the user owns. Verified through the secp256r1 precompile.

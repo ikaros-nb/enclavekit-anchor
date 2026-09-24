@@ -14,4 +14,14 @@ pub enum EnclaveKitError {
     PrecompileLayoutMismatch,
     #[msg("The precompile message size does not match the instruction data length")]
     PrecompileMessageSizeMismatch,
+    #[msg("SHA-256 of the signing key does not match wallet_id on first use")]
+    WalletIdMismatch,
+    #[msg("The signing key is not the wallet's active key")]
+    KeyMismatch,
+    #[msg("The nonce does not match the wallet counter")]
+    NonceMismatch,
+    #[msg("The signed authorization has expired")]
+    AuthorizationExpired,
+    #[msg("The signed message does not match the instruction arguments")]
+    PreimageMismatch,
 }

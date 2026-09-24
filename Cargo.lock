@@ -1361,13 +1361,15 @@ name = "enclavekit"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "enclavekit-encoding",
  "litesvm",
  "p256",
- "solana-instructions-sysvar 4.0.0",
+ "solana-instructions-sysvar 3.0.1",
  "solana-keypair",
  "solana-message",
  "solana-precompile-error",
  "solana-secp256r1-program",
+ "solana-sha256-hasher",
  "solana-signer",
  "solana-transaction",
 ]
