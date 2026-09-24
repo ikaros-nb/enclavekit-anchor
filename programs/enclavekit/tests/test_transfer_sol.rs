@@ -46,7 +46,7 @@ impl Scenario {
         self.try_send(request)
             .unwrap_or_else(|failed| panic!("{:?}\n{:#?}", failed.err, failed.meta.logs))
     }
-    
+
     /// Signs with the scenario key and sends; the caller decides what a
     /// failure means.
     fn try_send(
@@ -123,30 +123,86 @@ fn second_action_uses_the_next_nonce() {
 
 #[test]
 fn rejects_a_replayed_nonce() {
-    todo!("first send, then the same request again: NonceMismatch")
+    let mut scenario = Scenario::new();
+    let first = scenario.request.clone();
+    scenario.send(&first);
+    let failed = scenario
+        .try_send(&first)
+        .unwrap_err();
+    assert_program_error(&failed, EnclaveKitError::NonceMismatch);
 }
 
 #[test]
 fn rejects_a_nonce_ahead_of_the_counter() {
-    todo!("first send, then nonce 2: NonceMismatch")
+    let mut scenario = Scenario::new();
+    let first = scenario.request.clone();
+    scenario.send(&first);
+
+    let second = TransferSolRequest { nonce: 2, ..first.clone() };
+    let failed = scenario
+        .try_send(&second)
+        .unwrap_err();
+    assert_program_error(&failed, EnclaveKitError::NonceMismatch);
 }
 
 #[test]
 fn rejects_an_expired_authorization() {
-    todo!("expires_at in the past: AuthorizationExpired")
+    let mut scenario = Scenario::new();
+    let tampered_request = TransferSolRequest {
+        expires_at: scenario.env.unix_timestamp() - 1,
+        ..scenario.request.clone()
+    };
+
+    let failed = scenario
+        .try_send(&tampered_request)
+        .unwrap_err();
+    assert_program_error(&failed, EnclaveKitError::AuthorizationExpired);
 }
 
 #[test]
 fn rejects_another_key_on_first_use() {
-    todo!("sign with another P-256 key, same wallet_id: WalletIdMismatch")
+    let mut scenario = Scenario::new();
+    let other_key = EnclaveKey::from_seed([8u8; 32]);
+    let instructions = scenario.request.sign(&other_key, &scenario.relayer());
+
+    let failed = scenario.try_send_raw(&instructions).unwrap_err();
+    assert_program_error(&failed, EnclaveKitError::WalletIdMismatch);
 }
 
 #[test]
 fn rejects_another_key_once_the_wallet_exists() {
-    todo!("first send, then sign with another key: KeyMismatch")
+    let mut scenario = Scenario::new();
+    let first = scenario.request.clone();
+    scenario.send(&first);
+
+    let other_key = EnclaveKey::from_seed([8u8; 32]);
+    let second = TransferSolRequest { nonce: 1, ..first };
+    let instructions = second.sign(&other_key, &scenario.relayer());
+
+    let failed = scenario.try_send_raw(&instructions).unwrap_err();
+    assert_program_error(&failed, EnclaveKitError::KeyMismatch);
 }
 
 #[test]
 fn caps_the_refund_at_max_relayer_fee() {
-    todo!("relayer_fee above the cap: vault only loses LAMPORTS + MAX_RELAYER_FEE")
+    let mut scenario = Scenario::new();
+    let greedy_relayer_request = TransferSolRequest {
+        relayer_fee: 2 * MAX_RELAYER_FEE,
+        ..scenario.request.clone()
+    };
+    let relayer = scenario.relayer();
+    let relayer_before = scenario.env.balance(&relayer);
+
+    let meta = scenario.send(&greedy_relayer_request);
+
+    assert_eq!(
+        scenario.env.balance(&vault_pda(&greedy_relayer_request.wallet_id)),
+        VAULT_FUNDING - LAMPORTS - MAX_RELAYER_FEE
+    );
+    // The relayer asked for twice the cap and only got the cap back
+    let rent = scenario.env.balance(&wallet_pda(&greedy_relayer_request.wallet_id));
+    assert_eq!(
+        scenario.env.balance(&relayer),
+        relayer_before - meta.fee - rent + MAX_RELAYER_FEE
+    );
 }
