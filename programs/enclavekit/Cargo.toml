@@ -27,6 +27,7 @@ solana-instructions-sysvar = "3.0.1"
 solana-sha256-hasher = "3.1.0"
 
 [dev-dependencies]
+enclavekit-encoding = { path = "../../crates/enclavekit-encoding" }
 litesvm = { version = "0.16.0", features = ["precompiles"] }
 p256 = { version = "0.14.0", features = ["ecdsa"] }
 solana-secp256r1-program = "3.0.0"

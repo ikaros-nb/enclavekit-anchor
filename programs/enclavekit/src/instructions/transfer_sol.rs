@@ -56,7 +56,6 @@ impl<'info> TransferSol<'info> {
         bumps: &TransferSolBumps,
     ) -> Result<()> {
         let payload = load_secp256r1_payload(&self.instructions_sysvar)?;
-        msg!("pubkey[0]={} message_len={}", payload.pubkey[0], payload.message.len());
 
         if self.wallet.active_key == [0u8; COMPRESSED_PUBKEY_LEN] {
             require!(
