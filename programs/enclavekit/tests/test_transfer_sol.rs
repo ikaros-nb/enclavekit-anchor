@@ -4,6 +4,7 @@ use anchor_lang::prelude::Pubkey;
 use anchor_lang::solana_program::instruction::Instruction;
 use common::{assert_program_error, vault_pda, wallet_pda, EnclaveKey, Env, TransferSolRequest};
 use enclavekit::error::EnclaveKitError;
+use enclavekit_encoding::preimage::PROGRAM_ID_OFFSET;
 use litesvm::types::{FailedTransactionMetadata, TransactionMetadata};
 use solana_signer::Signer;
 
@@ -54,6 +55,20 @@ impl Scenario {
         request: &TransferSolRequest,
     ) -> Result<TransactionMetadata, FailedTransactionMetadata> {
         let instructions = request.sign(&self.key, &self.relayer());
+        self.try_send_raw(&instructions)
+    }
+
+    /// Signs `preimage` as is, but sends the program instruction built from
+    /// `request`: the two disagree whenever `preimage` was tampered with.
+    fn try_send_with_preimage(
+        &mut self,
+        preimage: &[u8],
+        request: &TransferSolRequest,
+    ) -> Result<TransactionMetadata, FailedTransactionMetadata> {
+        let instructions = [
+            self.key.precompile_instruction(preimage),
+            request.instruction(&self.relayer()),
+        ];
         self.try_send_raw(&instructions)
     }
 
@@ -205,4 +220,50 @@ fn caps_the_refund_at_max_relayer_fee() {
         scenario.env.balance(&relayer),
         relayer_before - meta.fee - rent + MAX_RELAYER_FEE
     );
+}
+
+// Tampered preimages: the signature is valid for the bytes it covers, so the
+// runtime accepts it. Only the program can notice the bytes do not describe
+// the instruction it is executing.
+
+#[test]
+fn rejects_a_signature_over_another_amount() {
+    let mut scenario = Scenario::new();
+    let request = scenario.request.clone();
+    let signed = TransferSolRequest { lamports: LAMPORTS + 1, ..request.clone() }.preimage();
+
+    let failed = scenario.try_send_with_preimage(&signed, &request).unwrap_err();
+    assert_program_error(&failed, EnclaveKitError::PreimageMismatch);
+}
+
+#[test]
+fn rejects_a_signature_over_another_recipient() {
+    let mut scenario = Scenario::new();
+    let request = scenario.request.clone();
+    let signed = TransferSolRequest { to: Pubkey::new_unique(), ..request.clone() }.preimage();
+
+    let failed = scenario.try_send_with_preimage(&signed, &request).unwrap_err();
+    assert_program_error(&failed, EnclaveKitError::PreimageMismatch);
+}
+
+#[test]
+fn rejects_a_signature_over_another_domain_tag() {
+    let mut scenario = Scenario::new();
+    let request = scenario.request.clone();
+    let mut signed = request.preimage();
+    signed[0] ^= 1;
+
+    let failed = scenario.try_send_with_preimage(&signed, &request).unwrap_err();
+    assert_program_error(&failed, EnclaveKitError::PreimageMismatch);
+}
+
+#[test]
+fn rejects_a_signature_over_another_program_id() {
+    let mut scenario = Scenario::new();
+    let request = scenario.request.clone();
+    let mut signed = request.preimage();
+    signed[PROGRAM_ID_OFFSET] ^= 1;
+
+    let failed = scenario.try_send_with_preimage(&signed, &request).unwrap_err();
+    assert_program_error(&failed, EnclaveKitError::PreimageMismatch);
 }
