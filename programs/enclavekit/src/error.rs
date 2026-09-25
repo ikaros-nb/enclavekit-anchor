@@ -24,4 +24,6 @@ pub enum EnclaveKitError {
     AuthorizationExpired,
     #[msg("The signed message does not match the instruction arguments")]
     PreimageMismatch,
+    #[msg("WebAuthn guardians are not supported in v1")]
+    WebAuthnGuardianUnsupported,
 }

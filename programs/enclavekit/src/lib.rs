@@ -36,4 +36,24 @@ pub mod enclavekit {
             &ctx.bumps,
         )
     }
+
+    pub fn set_guardians(
+        ctx: Context<SetGuardians>,
+        wallet_id: [u8; 32],
+        nonce: u64,
+        expires_at: i64,
+        max_relayer_fee: u64,
+        guardians: [Guardian; MAX_GUARDIANS],
+        relayer_fee: u64,
+    ) -> Result<()> {
+        ctx.accounts.set_guardians(
+            wallet_id,
+            nonce,
+            expires_at,
+            max_relayer_fee,
+            guardians,
+            relayer_fee,
+            &ctx.bumps,
+        )
+    }
 }

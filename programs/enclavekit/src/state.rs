@@ -36,3 +36,14 @@ pub enum Guardian {
     /// iCloud-synced passkey. Rejected by `set_guardians` in v1.
     WebAuthn([u8; COMPRESSED_PUBKEY_LEN]),
 }
+
+/// The preimage is built from the crate side.
+impl From<Guardian> for enclavekit_encoding::action::Guardian {
+    fn from(guardian: Guardian) -> Self {
+        match guardian {
+            Guardian::None => Self::None,
+            Guardian::P256(key) => Self::P256(key),
+            Guardian::WebAuthn(key) => Self::WebAuthn(key),
+        }
+    }
+}
