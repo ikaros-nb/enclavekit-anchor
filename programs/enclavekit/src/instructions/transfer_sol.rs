@@ -47,10 +47,7 @@ pub struct TransferSol<'info> {
 impl<'info> TransferSol<'info> {
     pub fn transfer(
         &mut self,
-        wallet_id: [u8; 32],
-        nonce: u64,
-        expires_at: i64,
-        max_relayer_fee: u64,
+        authorization: Authorization,
         lamports: u64,
         relayer_fee: u64,
         bumps: &TransferSolBumps,
@@ -58,12 +55,6 @@ impl<'info> TransferSol<'info> {
         let action = Action::TransferSol {
             to: self.to.key().to_bytes(),
             lamports,
-        };
-        let authorization = Authorization {
-            wallet_id,
-            nonce,
-            expires_at,
-            max_relayer_fee,
         };
         let signer = verify_enclave_authorization(
             &mut self.wallet,
@@ -88,7 +79,7 @@ impl<'info> TransferSol<'info> {
             &self.relayer,
             &self.system_program,
             relayer_fee,
-            max_relayer_fee,
+            authorization.max_relayer_fee,
         )
     }
 }

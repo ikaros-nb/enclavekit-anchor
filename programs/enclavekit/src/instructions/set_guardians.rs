@@ -43,22 +43,13 @@ pub struct SetGuardians<'info> {
 impl<'info> SetGuardians<'info> {
     pub fn set_guardians(
         &mut self,
-        wallet_id: [u8; 32],
-        nonce: u64,
-        expires_at: i64,
-        max_relayer_fee: u64,
+        authorization: Authorization,
         guardians: [Guardian; MAX_GUARDIANS],
         relayer_fee: u64,
         bumps: &SetGuardiansBumps,
     ) -> Result<()> {
         let action = Action::SetGuardians {
             guardians: guardians.map(Into::into),
-        };
-        let authorization = Authorization {
-            wallet_id,
-            nonce,
-            expires_at,
-            max_relayer_fee,
         };
         let signer = verify_enclave_authorization(
             &mut self.wallet,
@@ -87,7 +78,7 @@ impl<'info> SetGuardians<'info> {
             &self.relayer,
             &self.system_program,
             relayer_fee,
-            max_relayer_fee,
+            authorization.max_relayer_fee,
         )
     }
 }

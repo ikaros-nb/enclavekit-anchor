@@ -7,6 +7,7 @@ pub mod state;
 
 use anchor_lang::prelude::*;
 
+use authorization::Authorization;
 pub use constants::*;
 pub use instructions::*;
 pub use state::*;
@@ -26,15 +27,14 @@ pub mod enclavekit {
         lamports: u64,
         relayer_fee: u64,
     ) -> Result<()> {
-        ctx.accounts.transfer(
+        let authorization = Authorization {
             wallet_id,
             nonce,
             expires_at,
             max_relayer_fee,
-            lamports,
-            relayer_fee,
-            &ctx.bumps,
-        )
+        };
+        ctx.accounts
+            .transfer(authorization, lamports, relayer_fee, &ctx.bumps)
     }
 
     pub fn set_guardians(
@@ -46,14 +46,13 @@ pub mod enclavekit {
         guardians: [Guardian; MAX_GUARDIANS],
         relayer_fee: u64,
     ) -> Result<()> {
-        ctx.accounts.set_guardians(
+        let authorization = Authorization {
             wallet_id,
             nonce,
             expires_at,
             max_relayer_fee,
-            guardians,
-            relayer_fee,
-            &ctx.bumps,
-        )
+        };
+        ctx.accounts
+            .set_guardians(authorization, guardians, relayer_fee, &ctx.bumps)
     }
 }
