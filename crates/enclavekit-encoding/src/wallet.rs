@@ -1,9 +1,8 @@
 use sha2::{Digest, Sha256};
 
-pub const WALLET_SEED: &[u8] = b"wallet";
-pub const VAULT_SEED: &[u8] = b"vault";
+use crate::constants::COMPRESSED_PUBKEY_LEN;
 
-pub fn wallet_id(compressed_pubkey: &[u8; 33]) -> [u8; 32] {
+pub fn wallet_id(compressed_pubkey: &[u8; COMPRESSED_PUBKEY_LEN]) -> [u8; 32] {
     Sha256::digest(compressed_pubkey).into()
 }
 

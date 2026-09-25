@@ -1,7 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 
-pub const MAX_GUARDIANS: usize = 3;
-pub const COMPRESSED_PUBKEY_LEN: usize = 33;
+use crate::constants::{COMPRESSED_PUBKEY_LEN, MAX_GUARDIANS};
 
 #[derive(BorshSerialize, BorshDeserialize, PartialEq, Eq, Debug)]
 pub enum Guardian {
@@ -22,7 +21,7 @@ pub enum Action {
         amount: u64,
     },
     ProposeRotation {
-        new_key: [u8; 33],
+        new_key: [u8; COMPRESSED_PUBKEY_LEN],
     },
     CancelRotation,
     SetGuardians {

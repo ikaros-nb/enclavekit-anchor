@@ -3,10 +3,12 @@ use anchor_lang::prelude::*;
 // PDA seeds
 
 #[constant]
-pub const WALLET_SEED: &[u8] = b"wallet";
+pub const WALLET_SEED: &[u8] = enclavekit_encoding::constants::WALLET_SEED;
 
 #[constant]
-pub const VAULT_SEED: &[u8] = b"vault";
+pub const VAULT_SEED: &[u8] = enclavekit_encoding::constants::VAULT_SEED;
+
+pub use enclavekit_encoding::constants::{COMPRESSED_PUBKEY_LEN, MAX_GUARDIANS};
 
 // Keys and signatures
 
@@ -22,9 +24,6 @@ pub const VAULT_SEED: &[u8] = b"vault";
 /// - 113..   message
 pub const SECP256R1_PROGRAM_ID: Pubkey = pubkey!("Secp256r1SigVerify1111111111111111111111111");
 
-/// Compressed SEC1 P-256 public key.
-/// - `COMPRESSED_PUBKEY_SERIALIZED_SIZE` on crate
-pub const COMPRESSED_PUBKEY_LEN: usize = 33;
 /// ECDSA P-256 signature, r ‖ s, low-S.
 /// - `SIGNATURE_SERIALIZED_SIZE` on crate
 pub const P256_SIGNATURE_LEN: usize = 64;
@@ -55,10 +54,7 @@ pub const SECP256R1_SIGNATURE_OFFSET: usize = SECP256R1_PUBKEY_OFFSET + COMPRESS
 /// offset 113 (49 + 64)
 pub const SECP256R1_MESSAGE_OFFSET: usize = SECP256R1_SIGNATURE_OFFSET + P256_SIGNATURE_LEN;
 
-// Guardians and rotation
-
-/// Fixed slot count; each slot costs 1 + 33 bytes of rent.
-pub const MAX_GUARDIANS: usize = 3;
+// Rotation
 
 /// Seconds a guardian's proposal must wait before it can be confirmed:
 /// the time the owner has to cancel it. 72 hours.
