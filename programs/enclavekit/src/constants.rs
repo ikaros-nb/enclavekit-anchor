@@ -37,7 +37,7 @@ pub const PRECOMPILE_DATA_START: usize = PRECOMPILE_OFFSETS_START + PRECOMPILE_O
 /// Each offset comes with an instruction index saying which instruction of
 /// the transaction holds the bytes. `u16::MAX` means the precompile
 /// instruction itself, the only value we accept.
-/// 
+///
 /// See `get_data_slice`: https://github.com/anza-xyz/agave/blob/v3.1.8/precompiles/src/secp256r1.rs
 /// ```text
 /// let instruction = if instruction_index == u16::MAX {

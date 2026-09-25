@@ -73,7 +73,10 @@ pub fn load_secp256r1_payload(instructions_sysvar: &AccountInfo) -> Result<Signe
         data.len() >= SECP256R1_MESSAGE_OFFSET,
         EnclaveKitError::PrecompileDataTooShort
     );
-    require!(data[0] == 1, EnclaveKitError::PrecompileSignatureCountMismatch);
+    require!(
+        data[0] == 1,
+        EnclaveKitError::PrecompileSignatureCountMismatch
+    );
 
     let offsets = SignatureOffsets::parse(data);
     require!(

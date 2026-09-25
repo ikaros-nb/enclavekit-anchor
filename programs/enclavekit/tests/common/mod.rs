@@ -7,7 +7,7 @@ use anchor_lang::solana_program::{instruction::Instruction, system_program};
 use anchor_lang::{AccountDeserialize, InstructionData, ToAccountMetas};
 use enclavekit::{error::EnclaveKitError, state::SmartWallet, VAULT_SEED, WALLET_SEED};
 use enclavekit_encoding::{action::Action, preimage::Preimage, wallet::wallet_id};
-use litesvm::{LiteSVM, types::FailedTransactionMetadata};
+use litesvm::{types::FailedTransactionMetadata, LiteSVM};
 use p256::ecdsa::{signature::Signer as _, Signature, SigningKey};
 use p256::elliptic_curve::sec1::ToSec1Point;
 use solana_keypair::Keypair;
@@ -29,7 +29,10 @@ impl EnclaveKey {
     /// Compressed SEC1 encoding: 0x02 or 0x03 followed by the 32-byte x coordinate.
     pub fn compressed_pubkey(&self) -> [u8; 33] {
         let point = self.0.verifying_key().as_affine().to_sec1_point(true);
-        point.as_bytes().try_into().expect("compressed point is 33 bytes")
+        point
+            .as_bytes()
+            .try_into()
+            .expect("compressed point is 33 bytes")
     }
 
     /// SHA-256 of the compressed key: the wallet identity the program expects
@@ -154,19 +157,15 @@ impl Env {
     pub fn send(
         &mut self,
         instructions: &[Instruction],
-    ) -> Result<litesvm::types::TransactionMetadata, litesvm::types::FailedTransactionMetadata> {
+    ) -> Result<litesvm::types::TransactionMetadata, litesvm::types::FailedTransactionMetadata>
+    {
         // A fresh blockhash makes every send a distinct transaction.
         self.svm.expire_blockhash();
         let blockhash = self.svm.latest_blockhash();
-        let message = Message::new_with_blockhash(
-            instructions, 
-            Some(&self.payer.pubkey()), 
-            &blockhash
-        );
-        let tx = VersionedTransaction::try_new(
-            VersionedMessage::Legacy(message),
-            &[&self.payer]
-        ).unwrap();
+        let message =
+            Message::new_with_blockhash(instructions, Some(&self.payer.pubkey()), &blockhash);
+        let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(message), &[&self.payer])
+            .unwrap();
         self.svm.send_transaction(tx)
     }
 

@@ -133,7 +133,10 @@ fn second_action_uses_the_next_nonce() {
     let first = scenario.request.clone();
     scenario.send(&first);
 
-    let second = TransferSolRequest { nonce: 1, ..first.clone() };
+    let second = TransferSolRequest {
+        nonce: 1,
+        ..first.clone()
+    };
     scenario.send(&second);
 
     let wallet = scenario.env.wallet(&first.wallet_id).unwrap();
@@ -152,9 +155,7 @@ fn rejects_a_replayed_nonce() {
     let mut scenario = Scenario::new();
     let first = scenario.request.clone();
     scenario.send(&first);
-    let failed = scenario
-        .try_send(&first)
-        .unwrap_err();
+    let failed = scenario.try_send(&first).unwrap_err();
     assert_program_error(&failed, EnclaveKitError::NonceMismatch);
 }
 
@@ -164,10 +165,11 @@ fn rejects_a_nonce_ahead_of_the_counter() {
     let first = scenario.request.clone();
     scenario.send(&first);
 
-    let second = TransferSolRequest { nonce: 2, ..first.clone() };
-    let failed = scenario
-        .try_send(&second)
-        .unwrap_err();
+    let second = TransferSolRequest {
+        nonce: 2,
+        ..first.clone()
+    };
+    let failed = scenario.try_send(&second).unwrap_err();
     assert_program_error(&failed, EnclaveKitError::NonceMismatch);
 }
 
@@ -179,9 +181,7 @@ fn rejects_an_expired_authorization() {
         ..scenario.request.clone()
     };
 
-    let failed = scenario
-        .try_send(&tampered_request)
-        .unwrap_err();
+    let failed = scenario.try_send(&tampered_request).unwrap_err();
     assert_program_error(&failed, EnclaveKitError::AuthorizationExpired);
 }
 
@@ -222,11 +222,15 @@ fn caps_the_refund_at_max_relayer_fee() {
     let meta = scenario.send(&greedy_relayer_request);
 
     assert_eq!(
-        scenario.env.balance(&vault_pda(&greedy_relayer_request.wallet_id)),
+        scenario
+            .env
+            .balance(&vault_pda(&greedy_relayer_request.wallet_id)),
         VAULT_FUNDING - LAMPORTS - MAX_RELAYER_FEE
     );
     // The relayer asked for twice the cap and only got the cap back
-    let rent = scenario.env.balance(&wallet_pda(&greedy_relayer_request.wallet_id));
+    let rent = scenario
+        .env
+        .balance(&wallet_pda(&greedy_relayer_request.wallet_id));
     assert_eq!(
         scenario.env.balance(&relayer),
         relayer_before - meta.fee - rent + MAX_RELAYER_FEE
@@ -241,9 +245,15 @@ fn caps_the_refund_at_max_relayer_fee() {
 fn rejects_a_signature_over_another_amount() {
     let mut scenario = Scenario::new();
     let request = scenario.request.clone();
-    let signed = TransferSolRequest { lamports: LAMPORTS + 1, ..request.clone() }.preimage();
+    let signed = TransferSolRequest {
+        lamports: LAMPORTS + 1,
+        ..request.clone()
+    }
+    .preimage();
 
-    let failed = scenario.try_send_with_preimage(&signed, &request).unwrap_err();
+    let failed = scenario
+        .try_send_with_preimage(&signed, &request)
+        .unwrap_err();
     assert_program_error(&failed, EnclaveKitError::PreimageMismatch);
 }
 
@@ -251,9 +261,15 @@ fn rejects_a_signature_over_another_amount() {
 fn rejects_a_signature_over_another_recipient() {
     let mut scenario = Scenario::new();
     let request = scenario.request.clone();
-    let signed = TransferSolRequest { to: Pubkey::new_unique(), ..request.clone() }.preimage();
+    let signed = TransferSolRequest {
+        to: Pubkey::new_unique(),
+        ..request.clone()
+    }
+    .preimage();
 
-    let failed = scenario.try_send_with_preimage(&signed, &request).unwrap_err();
+    let failed = scenario
+        .try_send_with_preimage(&signed, &request)
+        .unwrap_err();
     assert_program_error(&failed, EnclaveKitError::PreimageMismatch);
 }
 
@@ -264,7 +280,9 @@ fn rejects_a_signature_over_another_domain_tag() {
     let mut signed = request.preimage();
     signed[0] ^= 1;
 
-    let failed = scenario.try_send_with_preimage(&signed, &request).unwrap_err();
+    let failed = scenario
+        .try_send_with_preimage(&signed, &request)
+        .unwrap_err();
     assert_program_error(&failed, EnclaveKitError::PreimageMismatch);
 }
 
@@ -275,7 +293,9 @@ fn rejects_a_signature_over_another_program_id() {
     let mut signed = request.preimage();
     signed[PROGRAM_ID_OFFSET] ^= 1;
 
-    let failed = scenario.try_send_with_preimage(&signed, &request).unwrap_err();
+    let failed = scenario
+        .try_send_with_preimage(&signed, &request)
+        .unwrap_err();
     assert_program_error(&failed, EnclaveKitError::PreimageMismatch);
 }
 
@@ -328,7 +348,10 @@ fn rejects_when_the_vault_would_be_left_below_rent() {
 
     let failed = scenario.try_send(&request).unwrap_err();
     assert!(
-        matches!(failed.err, TransactionError::InsufficientFundsForRent { .. }),
+        matches!(
+            failed.err,
+            TransactionError::InsufficientFundsForRent { .. }
+        ),
         "expected InsufficientFundsForRent, got {:?}\n{:#?}",
         failed.err,
         failed.meta.logs

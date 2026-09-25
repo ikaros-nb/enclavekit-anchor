@@ -36,9 +36,7 @@ fn fails_when_there_is_no_instruction_before() {
     // refuses with InvalidArgument before our own checks even run.
     let mut env = Env::new();
     let relayer = env.payer.pubkey();
-    let failed = env.send(&[
-        transfer_sol_instruction(&relayer)
-    ]).unwrap_err();
+    let failed = env.send(&[transfer_sol_instruction(&relayer)]).unwrap_err();
     assert_failed_at(&failed, 0, "InvalidArgument");
 }
 
@@ -46,10 +44,12 @@ fn fails_when_there_is_no_instruction_before() {
 fn fails_when_the_instruction_before_is_not_the_precompile() {
     let mut env = Env::new();
     let payer = env.payer.pubkey();
-    let failed = env.send(&[
-        system_instruction::transfer(&payer, &payer, 1),
-        transfer_sol_instruction(&payer),
-    ]).unwrap_err();
+    let failed = env
+        .send(&[
+            system_instruction::transfer(&payer, &payer, 1),
+            transfer_sol_instruction(&payer),
+        ])
+        .unwrap_err();
 
     assert_program_error(&failed, EnclaveKitError::PrecompileProgramMismatch);
 }

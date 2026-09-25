@@ -1,11 +1,11 @@
 use anchor_lang::{
     prelude::*,
-    system_program::{Transfer, transfer},
+    system_program::{transfer, Transfer},
 };
 
 use crate::{
+    authorization::{require_active_key, verify_enclave_authorization, Authorization},
     SmartWallet, VAULT_SEED, WALLET_SEED,
-    authorization::{Authorization, require_active_key, verify_enclave_authorization},
 };
 
 use enclavekit_encoding::action::Action;
@@ -55,8 +55,16 @@ impl<'info> TransferSol<'info> {
         relayer_fee: u64,
         bumps: &TransferSolBumps,
     ) -> Result<()> {
-        let action = Action::TransferSol { to: self.to.key().to_bytes(), lamports };
-        let authorization = Authorization { wallet_id, nonce, expires_at, max_relayer_fee };
+        let action = Action::TransferSol {
+            to: self.to.key().to_bytes(),
+            lamports,
+        };
+        let authorization = Authorization {
+            wallet_id,
+            nonce,
+            expires_at,
+            max_relayer_fee,
+        };
         let signer = verify_enclave_authorization(
             &mut self.wallet,
             &self.instructions_sysvar,
@@ -67,13 +75,9 @@ impl<'info> TransferSol<'info> {
         )?;
         require_active_key(&self.wallet, &signer)?;
 
-        let seeds = &[
-            VAULT_SEED,
-            wallet_id.as_ref(),
-            &[self.wallet.vault_bump]
-        ];
+        let seeds = &[VAULT_SEED, wallet_id.as_ref(), &[self.wallet.vault_bump]];
         let signer_seeds = &[&seeds[..]];
-        
+
         transfer(
             CpiContext::new_with_signer(
                 self.system_program.key(),
@@ -81,7 +85,7 @@ impl<'info> TransferSol<'info> {
                     from: self.vault.to_account_info(),
                     to: self.to.to_account_info(),
                 },
-                signer_seeds
+                signer_seeds,
             ),
             lamports,
         )?;
@@ -93,7 +97,7 @@ impl<'info> TransferSol<'info> {
                     from: self.vault.to_account_info(),
                     to: self.relayer.to_account_info(),
                 },
-                signer_seeds
+                signer_seeds,
             ),
             relayer_fee.min(max_relayer_fee),
         )?;

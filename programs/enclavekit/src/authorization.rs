@@ -2,8 +2,8 @@ use anchor_lang::prelude::*;
 use solana_sha256_hasher::hash;
 
 use crate::{
-    COMPRESSED_PUBKEY_LEN, Guardian, MAX_GUARDIANS, SmartWallet,
-    error::EnclaveKitError, precompile::load_secp256r1_payload,
+    error::EnclaveKitError, precompile::load_secp256r1_payload, Guardian, SmartWallet,
+    COMPRESSED_PUBKEY_LEN, MAX_GUARDIANS,
 };
 
 use enclavekit_encoding::{action::Action, preimage::Preimage};
@@ -44,7 +44,10 @@ pub fn verify_enclave_authorization(
     }
 
     require!(auth.nonce == wallet.nonce, EnclaveKitError::NonceMismatch);
-    require!(auth.expires_at > Clock::get()?.unix_timestamp, EnclaveKitError::AuthorizationExpired);
+    require!(
+        auth.expires_at > Clock::get()?.unix_timestamp,
+        EnclaveKitError::AuthorizationExpired
+    );
 
     let expected = Preimage {
         program_id: crate::ID.to_bytes(),
@@ -54,7 +57,10 @@ pub fn verify_enclave_authorization(
         max_relayer_fee: auth.max_relayer_fee,
         action,
     };
-    require!(expected.to_bytes() == payload.message, EnclaveKitError::PreimageMismatch);
+    require!(
+        expected.to_bytes() == payload.message,
+        EnclaveKitError::PreimageMismatch
+    );
 
     wallet.nonce = wallet
         .nonce
@@ -65,7 +71,10 @@ pub fn verify_enclave_authorization(
 }
 
 /// For instructions only the active key may authorise.
-pub fn require_active_key(wallet: &SmartWallet, signer: &[u8; COMPRESSED_PUBKEY_LEN]) -> Result<()> {
+pub fn require_active_key(
+    wallet: &SmartWallet,
+    signer: &[u8; COMPRESSED_PUBKEY_LEN],
+) -> Result<()> {
     require!(*signer == wallet.active_key, EnclaveKitError::KeyMismatch);
     Ok(())
 }

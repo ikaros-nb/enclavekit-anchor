@@ -12,12 +12,25 @@ pub enum Guardian {
 
 #[derive(BorshSerialize, BorshDeserialize, PartialEq, Eq, Debug)]
 pub enum Action {
-    TransferSol { to: [u8; 32], lamports: u64 },
-    TransferToken { mint: [u8; 32], to: [u8; 32], amount: u64 },
-    ProposeRotation { new_key: [u8; 33] },
+    TransferSol {
+        to: [u8; 32],
+        lamports: u64,
+    },
+    TransferToken {
+        mint: [u8; 32],
+        to: [u8; 32],
+        amount: u64,
+    },
+    ProposeRotation {
+        new_key: [u8; 33],
+    },
     CancelRotation,
-    SetGuardians { guardians: [Guardian; MAX_GUARDIANS] },
-    CloseWallet { rent_to: [u8; 32] },
+    SetGuardians {
+        guardians: [Guardian; MAX_GUARDIANS],
+    },
+    CloseWallet {
+        rent_to: [u8; 32],
+    },
 }
 
 #[cfg(test)]
@@ -55,12 +68,16 @@ mod tests {
                 to: [0x33; 32],
                 amount: 2,
             },
-            Action::ProposeRotation { new_key: [0x44; 33] },
+            Action::ProposeRotation {
+                new_key: [0x44; 33],
+            },
             Action::CancelRotation,
             Action::SetGuardians {
                 guardians: [Guardian::P256([0x55; 33]), Guardian::None, Guardian::None],
             },
-            Action::CloseWallet { rent_to: [0x66; 32] },
+            Action::CloseWallet {
+                rent_to: [0x66; 32],
+            },
         ];
 
         for (index, action) in actions.iter().enumerate() {

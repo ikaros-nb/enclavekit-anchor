@@ -26,6 +26,14 @@ pub mod enclavekit {
         lamports: u64,
         relayer_fee: u64,
     ) -> Result<()> {
-        ctx.accounts.transfer(wallet_id, nonce, expires_at, max_relayer_fee, lamports, relayer_fee, &ctx.bumps)
+        ctx.accounts.transfer(
+            wallet_id,
+            nonce,
+            expires_at,
+            max_relayer_fee,
+            lamports,
+            relayer_fee,
+            &ctx.bumps,
+        )
     }
 }
