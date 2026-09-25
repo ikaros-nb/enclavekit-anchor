@@ -5,7 +5,7 @@ use common::{
     assert_program_error, vault_pda, EnclaveKey, EnclaveRequest, Env, ProposeRotationRequest,
     SetGuardiansRequest,
 };
-use enclavekit::{error::EnclaveKitError, state::Guardian};
+use enclavekit::{error::EnclaveKitError, state::Guardian, ROTATION_DELAY, ROTATION_WINDOW};
 use litesvm::types::{FailedTransactionMetadata, TransactionMetadata};
 use solana_signer::Signer;
 
@@ -198,6 +198,32 @@ fn rejects_a_guardian_replacing_another_guardians_proposal() {
         .try_send_as(&scenario.guardians[1].clone(), &second)
         .unwrap_err();
     assert_program_error(&failed, EnclaveKitError::RotationSlotTaken);
+}
+
+#[test]
+fn guardian_replaces_another_guardians_expired_proposal() {
+    // Slot 0 proposed and nobody confirmed in time. Slot 1 must be able to
+    // start over: the owner who could cancel is precisely the one who is gone.
+    let mut scenario = Scenario::new();
+    let first = scenario.request.clone();
+    scenario.send_as(&scenario.guardians[0].clone(), &first);
+    scenario.env.warp(ROTATION_DELAY + ROTATION_WINDOW + 1);
+
+    let second = ProposeRotationRequest {
+        nonce: 2,
+        expires_at: scenario.env.unix_timestamp() + 60,
+        ..first
+    };
+    scenario.send_as(&scenario.guardians[1].clone(), &second);
+
+    let pending = scenario
+        .env
+        .wallet(&second.wallet_id)
+        .unwrap()
+        .rotation
+        .unwrap();
+    assert_eq!(pending.proposed_by, 1);
+    assert_eq!(pending.proposed_at, scenario.env.unix_timestamp());
 }
 
 #[test]

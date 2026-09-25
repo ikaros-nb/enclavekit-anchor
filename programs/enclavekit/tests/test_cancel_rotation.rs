@@ -4,9 +4,10 @@ use anchor_lang::error::ErrorCode;
 use anchor_lang::prelude::Pubkey;
 use common::{
     assert_failed_at, assert_program_error, vault_pda, CancelRotationRequest, EnclaveKey,
-    EnclaveRequest, Env, TransferSolRequest, PROGRAM_INDEX,
+    EnclaveRequest, Env, ProposeRotationRequest, SetGuardiansRequest, TransferSolRequest,
+    PROGRAM_INDEX,
 };
-use enclavekit::error::EnclaveKitError;
+use enclavekit::{error::EnclaveKitError, state::Guardian};
 use litesvm::types::{FailedTransactionMetadata, TransactionMetadata};
 use solana_signer::Signer;
 
@@ -69,6 +70,91 @@ impl Scenario {
         let instructions = request.sign(&self.key, &self.relayer());
         self.env.send(&instructions)
     }
+
+    /// Any enclave-authorised call that must pass, signed by `signer`.
+    fn send_ok(&mut self, signer: &EnclaveKey, request: &impl EnclaveRequest) {
+        let instructions = request.sign(signer, &self.relayer());
+        self.env
+            .send(&instructions)
+            .unwrap_or_else(|failed| panic!("{:?}\n{:#?}", failed.err, failed.meta.logs));
+        self.request.nonce += 1;
+    }
+
+    /// Registers `guardian` in slot 0 and has it propose a rotation, so the
+    /// wallet carries a pending rotation. Uses and advances the nonce.
+    fn pending_rotation_from(&mut self, guardian: &EnclaveKey) {
+        let set_guardians = SetGuardiansRequest {
+            wallet_id: self.request.wallet_id,
+            guardians: [
+                Guardian::P256(guardian.compressed_pubkey()),
+                Guardian::None,
+                Guardian::None,
+            ],
+            nonce: self.request.nonce,
+            expires_at: self.request.expires_at,
+            max_relayer_fee: MAX_RELAYER_FEE,
+            relayer_fee: RELAYER_FEE,
+        };
+        self.send_ok(&self.key.clone(), &set_guardians);
+
+        let propose = ProposeRotationRequest {
+            wallet_id: self.request.wallet_id,
+            new_key: EnclaveKey::from_seed([11u8; 32]).compressed_pubkey(),
+            nonce: self.request.nonce,
+            expires_at: self.request.expires_at,
+            max_relayer_fee: MAX_RELAYER_FEE,
+            relayer_fee: RELAYER_FEE,
+        };
+        self.send_ok(guardian, &propose);
+    }
+}
+
+#[test]
+fn active_key_cancels_a_guardians_proposal() {
+    let mut scenario = Scenario::new();
+    scenario.create_wallet();
+    let guardian = EnclaveKey::from_seed([9u8; 32]);
+    scenario.pending_rotation_from(&guardian);
+    let request = scenario.request.clone();
+    let relayer = scenario.relayer();
+    let relayer_before = scenario.env.balance(&relayer);
+    let vault_before = scenario.env.balance(&vault_pda(&request.wallet_id));
+
+    let meta = scenario
+        .try_send(&request)
+        .unwrap_or_else(|failed| panic!("{:?}\n{:#?}", failed.err, failed.meta.logs));
+
+    let wallet = scenario.env.wallet(&request.wallet_id).unwrap();
+    assert!(wallet.rotation.is_none());
+    assert_eq!(wallet.nonce, request.nonce + 1);
+    // Cancelling changes nothing else: same key, same guardians.
+    assert_eq!(wallet.active_key, scenario.key.compressed_pubkey());
+    assert_eq!(
+        wallet.guardians[0],
+        Guardian::P256(guardian.compressed_pubkey())
+    );
+    // Only the refund leaves the vault; the state PDA already existed.
+    assert_eq!(
+        scenario.env.balance(&vault_pda(&request.wallet_id)),
+        vault_before - RELAYER_FEE
+    );
+    assert_eq!(
+        scenario.env.balance(&relayer),
+        relayer_before - meta.fee + RELAYER_FEE
+    );
+}
+
+#[test]
+fn rejects_a_guardian_cancelling() {
+    let mut scenario = Scenario::new();
+    scenario.create_wallet();
+    let guardian = EnclaveKey::from_seed([9u8; 32]);
+    scenario.pending_rotation_from(&guardian);
+    let request = scenario.request.clone();
+
+    let instructions = request.sign(&guardian, &scenario.relayer());
+    let failed = scenario.env.send(&instructions).unwrap_err();
+    assert_program_error(&failed, EnclaveKitError::KeyMismatch);
 }
 
 #[test]
