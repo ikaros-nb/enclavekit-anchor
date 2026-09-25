@@ -1,0 +1,12 @@
+{
+  "name": "EnclaveKit",
+  "description": "Smart wallet controlled by an iPhone Secure Enclave P-256 key via the secp256r1 precompile",
+  "project_url": "https://github.com/ikaros-nb/enclavekit-anchor",
+  "contacts": [
+    "link:https://github.com/ikaros-nb/enclavekit-anchor/security/advisories/new"
+  ],
+  "policy": "https://github.com/ikaros-nb/enclavekit-anchor/security/advisories/new",
+  "preferred_languages": ["en", "fr"],
+  "source_code": "https://github.com/ikaros-nb/enclavekit-anchor",
+  "version": "0.1.0"
+}
