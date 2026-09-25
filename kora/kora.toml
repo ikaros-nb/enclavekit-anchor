@@ -1,0 +1,75 @@
+[kora]
+rate_limit = 100
+
+[kora.enabled_methods]
+liveness = true
+get_config = true
+get_blockhash = true
+get_payer_signer = true
+sign_and_send_transaction = true
+sign_transaction = false
+transfer_transaction = false
+estimate_transaction_fee = false
+get_supported_tokens = false
+
+[validation]
+max_allowed_lamports = 100000
+max_signatures = 2
+price_source = "Mock"
+allow_durable_transactions = false
+allowed_programs = [
+  "dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY",
+  "11111111111111111111111111111111",
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+  "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+  "ComputeBudget111111111111111111111111111111",
+  "Secp256r1SigVerify1111111111111111111111111",
+  "Ed25519SigVerify111111111111111111111111111",
+]
+allowed_tokens = [
+    "So11111111111111111111111111111111111111112",
+]
+allowed_spl_paid_tokens = []
+disallowed_accounts = []
+
+[validation.price]
+type = "free"
+
+[validation.fee_payer_policy.system]
+allow_transfer = false
+allow_assign = false
+allow_create_account = false
+allow_allocate = false
+
+[validation.fee_payer_policy.spl_token]
+allow_transfer = false
+allow_burn = false
+allow_close_account = false
+allow_approve = false
+allow_revoke = false
+allow_set_authority = false
+allow_mint_to = false
+allow_initialize_mint = false
+allow_initialize_account = false
+allow_initialize_multisig = false
+allow_freeze_account = false
+allow_thaw_account = false
+
+[validation.fee_payer_policy.token_2022]
+allow_transfer = false
+allow_burn = false
+allow_close_account = false
+allow_approve = false
+allow_revoke = false
+allow_set_authority = false
+allow_mint_to = false
+allow_initialize_mint = false
+allow_initialize_account = false
+allow_initialize_multisig = false
+allow_freeze_account = false
+allow_thaw_account = false
+
+[validation.token_2022]
+blocked_mint_extensions = ["permanent_delegate", "transfer_hook", "pausable"]
+blocked_account_extensions = ["cpi_guard", "memo_transfer"]

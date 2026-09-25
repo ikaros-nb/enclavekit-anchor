@@ -1,0 +1,7 @@
+[signer_pool]
+strategy = "round_robin"
+
+[[signers]]
+name = "devnet_fee_payer"
+type = "memory"
+private_key_env = "KORA_PRIVATE_KEY"
