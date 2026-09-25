@@ -13,7 +13,7 @@ estimate_transaction_fee = false
 get_supported_tokens = false
 
 [validation]
-max_allowed_lamports = 100000
+max_allowed_lamports = 2000000
 max_signatures = 2
 price_source = "Mock"
 allow_durable_transactions = false
@@ -39,7 +39,7 @@ type = "free"
 [validation.fee_payer_policy.system]
 allow_transfer = false
 allow_assign = false
-allow_create_account = false
+allow_create_account = true
 allow_allocate = false
 
 [validation.fee_payer_policy.spl_token]
