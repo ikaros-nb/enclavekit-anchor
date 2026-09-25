@@ -216,6 +216,54 @@ impl EnclaveRequest for SetGuardiansRequest {
     }
 }
 
+/// Everything one `cancel_rotation` call needs
+#[derive(Clone)]
+pub struct CancelRotationRequest {
+    pub wallet_id: [u8; 32],
+    pub nonce: u64,
+    pub expires_at: i64,
+    pub max_relayer_fee: u64,
+    /// Asked by the relayer, outside the signed bytes.
+    pub relayer_fee: u64,
+}
+
+impl EnclaveRequest for CancelRotationRequest {
+    fn authorization(&self) -> Authorization {
+        Authorization {
+            wallet_id: self.wallet_id,
+            nonce: self.nonce,
+            expires_at: self.expires_at,
+            max_relayer_fee: self.max_relayer_fee,
+        }
+    }
+
+    fn action(&self) -> Action {
+        Action::CancelRotation
+    }
+
+    fn instruction(&self, relayer: &Pubkey) -> Instruction {
+        Instruction::new_with_bytes(
+            enclavekit::id(),
+            &enclavekit::instruction::CancelRotation {
+                wallet_id: self.wallet_id,
+                nonce: self.nonce,
+                expires_at: self.expires_at,
+                max_relayer_fee: self.max_relayer_fee,
+                relayer_fee: self.relayer_fee,
+            }
+            .data(),
+            enclavekit::accounts::CancelRotation {
+                wallet: wallet_pda(&self.wallet_id),
+                vault: vault_pda(&self.wallet_id),
+                relayer: *relayer,
+                instructions_sysvar: solana_instructions_sysvar::ID,
+                system_program: system_program::ID,
+            }
+            .to_account_metas(None),
+        )
+    }
+}
+
 pub struct Env {
     pub svm: LiteSVM,
     pub payer: Keypair,

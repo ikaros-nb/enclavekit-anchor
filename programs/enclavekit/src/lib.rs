@@ -55,4 +55,21 @@ pub mod enclavekit {
         ctx.accounts
             .set_guardians(authorization, guardians, relayer_fee, &ctx.bumps)
     }
+
+    pub fn cancel_rotation(
+        ctx: Context<CancelRotation>,
+        wallet_id: [u8; 32],
+        nonce: u64,
+        expires_at: i64,
+        max_relayer_fee: u64,
+        relayer_fee: u64,
+    ) -> Result<()> {
+        let authorization = Authorization {
+            wallet_id,
+            nonce,
+            expires_at,
+            max_relayer_fee,
+        };
+        ctx.accounts.cancel(authorization, relayer_fee)
+    }
 }

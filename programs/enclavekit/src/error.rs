@@ -26,4 +26,6 @@ pub enum EnclaveKitError {
     PreimageMismatch,
     #[msg("WebAuthn guardians are not supported in v1")]
     WebAuthnGuardianUnsupported,
+    #[msg("No rotation is pending")]
+    NoPendingRotation,
 }
