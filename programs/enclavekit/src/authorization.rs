@@ -22,7 +22,7 @@ pub fn verify_enclave_authorization(
     action: &Action,
     state_bump: u8,
     vault_bump: u8,
-) -> Result<()> {
+) -> Result<[u8; COMPRESSED_PUBKEY_LEN]> {
     let payload = load_secp256r1_payload(instructions_sysvar)?;
 
     if wallet.active_key == [0u8; COMPRESSED_PUBKEY_LEN] {
@@ -41,8 +41,6 @@ pub fn verify_enclave_authorization(
             state_bump,
             vault_bump,
         };
-    } else {
-        require!(payload.pubkey == wallet.active_key, EnclaveKitError::KeyMismatch);
     }
 
     require!(auth.nonce == wallet.nonce, EnclaveKitError::NonceMismatch);
@@ -63,5 +61,11 @@ pub fn verify_enclave_authorization(
         .checked_add(1)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
+    Ok(payload.pubkey)
+}
+
+/// For instructions only the active key may authorise.
+pub fn require_active_key(wallet: &SmartWallet, signer: &[u8; COMPRESSED_PUBKEY_LEN]) -> Result<()> {
+    require!(*signer == wallet.active_key, EnclaveKitError::KeyMismatch);
     Ok(())
 }

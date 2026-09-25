@@ -5,7 +5,7 @@ use anchor_lang::{
 
 use crate::{
     SmartWallet, VAULT_SEED, WALLET_SEED,
-    authorization::{Authorization, verify_enclave_authorization},
+    authorization::{Authorization, require_active_key, verify_enclave_authorization},
 };
 
 use enclavekit_encoding::action::Action;
@@ -57,7 +57,7 @@ impl<'info> TransferSol<'info> {
     ) -> Result<()> {
         let action = Action::TransferSol { to: self.to.key().to_bytes(), lamports };
         let authorization = Authorization { wallet_id, nonce, expires_at, max_relayer_fee };
-        verify_enclave_authorization(
+        let signer = verify_enclave_authorization(
             &mut self.wallet,
             &self.instructions_sysvar,
             &authorization,
@@ -65,6 +65,7 @@ impl<'info> TransferSol<'info> {
             bumps.wallet,
             bumps.vault,
         )?;
+        require_active_key(&self.wallet, &signer)?;
 
         let seeds = &[
             VAULT_SEED,
