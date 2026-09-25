@@ -38,3 +38,21 @@ anchor idl upgrade -f target/idl/enclavekit.json dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn
 ```
 
 Tests read the rotation constants from the crate they are compiled with, so always run them against a `.so` built with the same features. Never run `anchor build` and `cargo test` at the same time.
+
+## Relayer
+
+`kora/` holds the Kora config: allowed programs, fee payer policy, free pricing. The signer is a devnet keypair passed through the `KORA_PRIVATE_KEY` environment variable.
+
+```bash
+cargo install kora-cli@2.0.5
+export KORA_PRIVATE_KEY=$HOME/.config/solana/kora-fee-payer.json
+
+kora --config kora/kora.toml config validate
+kora --config kora/kora.toml --rpc-url https://api.devnet.solana.com rpc start --signers-config kora/signers.toml
+```
+
+With Kora running, send one `transfer_sol` on devnet through it. The vault is funded from the Solana CLI wallet and the unsigned transaction is written to `target/kora_transfer_sol.b64`:
+
+```bash
+cargo run -p enclavekit --example kora_transfer_sol
+```
