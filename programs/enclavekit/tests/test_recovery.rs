@@ -91,7 +91,7 @@ impl Story {
 }
 
 #[test]
-fn a_lost_iphone_is_replaced_through_the_guardian() {
+fn the_guardian_takes_over_a_lost_iphone() {
     let iphone_a = EnclaveKey::from_seed([7u8; 32]);
     let ipad = EnclaveKey::from_seed([9u8; 32]);
     let iphone_c = EnclaveKey::from_seed([11u8; 32]);
@@ -122,8 +122,8 @@ fn a_lost_iphone_is_replaced_through_the_guardian() {
     story.act(&iphone_a, &story.cancel());
     assert!(story.env.wallet(&wallet_id).unwrap().rotation.is_none());
 
-    // The phone is really lost this time. The iPad proposes the new iPhone.
-    story.act(&ipad, &story.propose(&iphone_c));
+    // The phone is really lost this time. The iPad proposes itself.
+    story.act(&ipad, &story.propose(&ipad));
 
     // Too early: the proposal waits its 72 hours.
     let failed = story
@@ -132,10 +132,10 @@ fn a_lost_iphone_is_replaced_through_the_guardian() {
         .unwrap_err();
     assert_program_error_at(&failed, 0, EnclaveKitError::RotationTooEarly);
 
-    // The new iPhone cannot act yet either.
+    // A guardian cannot pay either, even with its own proposal pending.
     let failed = story
         .env
-        .send(&story.transfer(merchant).sign(&iphone_c, &story.relayer()))
+        .send(&story.transfer(merchant).sign(&ipad, &story.relayer()))
         .unwrap_err();
     assert_program_error(&failed, EnclaveKitError::KeyMismatch);
 
@@ -147,7 +147,13 @@ fn a_lost_iphone_is_replaced_through_the_guardian() {
         .unwrap_or_else(|failed| panic!("{:?}\n{:#?}", failed.err, failed.meta.logs));
 
     let wallet = story.env.wallet(&wallet_id).unwrap();
-    assert_eq!(wallet.active_key, iphone_c.compressed_pubkey());
+    assert_eq!(wallet.active_key, ipad.compressed_pubkey());
+    // The iPad is now both the active key and guardian 0: confirm does not
+    // touch the list, the app cleans it up with set_guardians.
+    assert_eq!(
+        wallet.guardians[0],
+        Guardian::P256(ipad.compressed_pubkey())
+    );
     assert!(!wallet.attested);
     assert!(wallet.rotation.is_none());
     assert_eq!(
@@ -156,8 +162,8 @@ fn a_lost_iphone_is_replaced_through_the_guardian() {
     );
     assert_eq!(wallet.wallet_id, wallet_id, "the identity survives");
 
-    // The new iPhone pays from the same vault; whoever holds the old one cannot.
-    story.act(&iphone_c, &story.transfer(merchant));
+    // The iPad pays from the same vault; whoever holds the lost phone cannot.
+    story.act(&ipad, &story.transfer(merchant));
     assert_eq!(story.env.balance(&merchant), 2 * LAMPORTS);
 
     let failed = story
