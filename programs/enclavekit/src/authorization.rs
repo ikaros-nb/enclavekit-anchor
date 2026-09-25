@@ -1,9 +1,12 @@
-use anchor_lang::prelude::*;
+use anchor_lang::{
+    prelude::*,
+    system_program::{transfer, Transfer},
+};
 use solana_sha256_hasher::hash;
 
 use crate::{
     error::EnclaveKitError, precompile::load_secp256r1_payload, Guardian, SmartWallet,
-    COMPRESSED_PUBKEY_LEN, MAX_GUARDIANS,
+    COMPRESSED_PUBKEY_LEN, MAX_GUARDIANS, VAULT_SEED,
 };
 
 use enclavekit_encoding::{action::Action, preimage::Preimage};
@@ -77,4 +80,46 @@ pub fn require_active_key(
 ) -> Result<()> {
     require!(*signer == wallet.active_key, EnclaveKitError::KeyMismatch);
     Ok(())
+}
+
+/// Moves lamports out of the vault, signed with its seeds.
+pub fn transfer_from_vault<'info>(
+    wallet: &SmartWallet,
+    vault: &SystemAccount<'info>,
+    to: AccountInfo<'info>,
+    system_program: &Program<'info, System>,
+    lamports: u64,
+) -> Result<()> {
+    let seeds = &[VAULT_SEED, wallet.wallet_id.as_ref(), &[wallet.vault_bump]];
+    let signer_seeds = &[&seeds[..]];
+
+    transfer(
+        CpiContext::new_with_signer(
+            system_program.key(),
+            Transfer {
+                from: vault.to_account_info(),
+                to,
+            },
+            signer_seeds,
+        ),
+        lamports,
+    )
+}
+
+/// Pays the relayer back from the vault, never more than the enclave signed.
+pub fn refund_relayer<'info>(
+    wallet: &SmartWallet,
+    vault: &SystemAccount<'info>,
+    relayer: &Signer<'info>,
+    system_program: &Program<'info, System>,
+    relayer_fee: u64,
+    max_relayer_fee: u64,
+) -> Result<()> {
+    transfer_from_vault(
+        wallet,
+        vault,
+        relayer.to_account_info(),
+        system_program,
+        relayer_fee.min(max_relayer_fee),
+    )
 }

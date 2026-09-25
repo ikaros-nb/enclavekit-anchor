@@ -1,10 +1,10 @@
-use anchor_lang::{
-    prelude::*,
-    system_program::{transfer, Transfer},
-};
+use anchor_lang::prelude::*;
 
 use crate::{
-    authorization::{require_active_key, verify_enclave_authorization, Authorization},
+    authorization::{
+        refund_relayer, require_active_key, transfer_from_vault, verify_enclave_authorization,
+        Authorization,
+    },
     SmartWallet, VAULT_SEED, WALLET_SEED,
 };
 
@@ -75,32 +75,20 @@ impl<'info> TransferSol<'info> {
         )?;
         require_active_key(&self.wallet, &signer)?;
 
-        let seeds = &[VAULT_SEED, wallet_id.as_ref(), &[self.wallet.vault_bump]];
-        let signer_seeds = &[&seeds[..]];
-
-        transfer(
-            CpiContext::new_with_signer(
-                self.system_program.key(),
-                Transfer {
-                    from: self.vault.to_account_info(),
-                    to: self.to.to_account_info(),
-                },
-                signer_seeds,
-            ),
+        transfer_from_vault(
+            &self.wallet,
+            &self.vault,
+            self.to.to_account_info(),
+            &self.system_program,
             lamports,
         )?;
-
-        transfer(
-            CpiContext::new_with_signer(
-                self.system_program.key(),
-                Transfer {
-                    from: self.vault.to_account_info(),
-                    to: self.relayer.to_account_info(),
-                },
-                signer_seeds,
-            ),
-            relayer_fee.min(max_relayer_fee),
-        )?;
-        Ok(())
+        refund_relayer(
+            &self.wallet,
+            &self.vault,
+            &self.relayer,
+            &self.system_program,
+            relayer_fee,
+            max_relayer_fee,
+        )
     }
 }

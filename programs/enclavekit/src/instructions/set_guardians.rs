@@ -1,10 +1,9 @@
-use anchor_lang::{
-    prelude::*,
-    system_program::{transfer, Transfer},
-};
+use anchor_lang::prelude::*;
 
 use crate::{
-    authorization::{require_active_key, verify_enclave_authorization, Authorization},
+    authorization::{
+        refund_relayer, require_active_key, verify_enclave_authorization, Authorization,
+    },
     error::EnclaveKitError,
     Guardian, SmartWallet, MAX_GUARDIANS, VAULT_SEED, WALLET_SEED,
 };
@@ -82,20 +81,13 @@ impl<'info> SetGuardians<'info> {
         self.wallet.guardians = guardians;
         self.wallet.rotation = None;
 
-        let seeds = &[VAULT_SEED, wallet_id.as_ref(), &[self.wallet.vault_bump]];
-        let signer_seeds = &[&seeds[..]];
-
-        transfer(
-            CpiContext::new_with_signer(
-                self.system_program.key(),
-                Transfer {
-                    from: self.vault.to_account_info(),
-                    to: self.relayer.to_account_info(),
-                },
-                signer_seeds,
-            ),
-            relayer_fee.min(max_relayer_fee),
-        )?;
-        Ok(())
+        refund_relayer(
+            &self.wallet,
+            &self.vault,
+            &self.relayer,
+            &self.system_program,
+            relayer_fee,
+            max_relayer_fee,
+        )
     }
 }

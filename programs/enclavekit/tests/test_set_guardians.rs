@@ -27,7 +27,9 @@ impl Scenario {
         let key = EnclaveKey::from_seed([7u8; 32]);
         let guardian = EnclaveKey::from_seed([9u8; 32]);
         let wallet_id = key.wallet_id();
-        env.svm.airdrop(&vault_pda(&wallet_id), VAULT_FUNDING).unwrap();
+        env.svm
+            .airdrop(&vault_pda(&wallet_id), VAULT_FUNDING)
+            .unwrap();
 
         let request = SetGuardiansRequest {
             wallet_id,
