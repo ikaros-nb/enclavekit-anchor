@@ -5,8 +5,8 @@ use anchor_lang::{
     solana_program::{instruction::Instruction, system_instruction},
 };
 use common::{
-    assert_failed_at, assert_program_error, assert_program_error_at, EnclaveKey, Env,
-    TransferSolRequest,
+    assert_failed_at, assert_program_error, assert_program_error_at, EnclaveKey, EnclaveRequest,
+    Env, TransferSolRequest,
 };
 use enclavekit::{
     constants::{PRECOMPILE_OFFSETS_START, SECP256R1_MESSAGE_OFFSET},

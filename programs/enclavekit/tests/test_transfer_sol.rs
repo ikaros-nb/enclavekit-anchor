@@ -4,8 +4,8 @@ use anchor_lang::error::ErrorCode;
 use anchor_lang::prelude::Pubkey;
 use anchor_lang::solana_program::instruction::Instruction;
 use common::{
-    assert_failed_at, assert_program_error, vault_pda, wallet_pda, EnclaveKey, Env,
-    TransferSolRequest, PROGRAM_INDEX,
+    assert_failed_at, assert_program_error, vault_pda, wallet_pda, EnclaveKey, EnclaveRequest,
+    Env, TransferSolRequest, PROGRAM_INDEX,
 };
 use enclavekit::error::EnclaveKitError;
 use enclavekit_encoding::preimage::PROGRAM_ID_OFFSET;

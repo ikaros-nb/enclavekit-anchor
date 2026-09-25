@@ -5,7 +5,12 @@ use anchor_lang::prelude::{Clock, Pubkey};
 use anchor_lang::solana_program::instruction::error::InstructionError;
 use anchor_lang::solana_program::{instruction::Instruction, system_program};
 use anchor_lang::{AccountDeserialize, InstructionData, ToAccountMetas};
-use enclavekit::{error::EnclaveKitError, state::SmartWallet, VAULT_SEED, WALLET_SEED};
+use enclavekit::{
+    authorization::Authorization,
+    error::EnclaveKitError,
+    state::{Guardian, SmartWallet},
+    MAX_GUARDIANS, VAULT_SEED, WALLET_SEED,
+};
 use enclavekit_encoding::{action::Action, preimage::Preimage, wallet::wallet_id};
 use litesvm::{types::FailedTransactionMetadata, LiteSVM};
 use p256::ecdsa::{signature::Signer as _, Signature, SigningKey};
@@ -69,6 +74,41 @@ pub fn vault_pda(wallet_id: &[u8; 32]) -> Pubkey {
     Pubkey::find_program_address(&[VAULT_SEED, wallet_id], &enclavekit::id()).0
 }
 
+/// One enclave-authorised call: what the enclave signs and what the relayer
+/// sends. Every instruction that goes through `verify_enclave_authorization`
+/// implements it; `preimage` and `sign` come for free.
+pub trait EnclaveRequest {
+    /// The signed header: wallet, nonce, expiry, fee cap.
+    fn authorization(&self) -> Authorization;
+    /// The action the enclave signs, as the program will rebuild it.
+    fn action(&self) -> Action;
+    /// The program instruction alone.
+    fn instruction(&self, relayer: &Pubkey) -> Instruction;
+
+    /// The bytes the enclave signs
+    fn preimage(&self) -> Vec<u8> {
+        let auth = self.authorization();
+        let action = self.action();
+        Preimage {
+            program_id: enclavekit::id().to_bytes(),
+            wallet_id: auth.wallet_id,
+            nonce: auth.nonce,
+            expires_at: auth.expires_at,
+            max_relayer_fee: auth.max_relayer_fee,
+            action: &action,
+        }
+        .to_bytes()
+    }
+
+    /// The pair a transaction carries: precompile first, program second.
+    fn sign(&self, key: &EnclaveKey, relayer: &Pubkey) -> [Instruction; 2] {
+        [
+            key.precompile_instruction(&self.preimage()),
+            self.instruction(relayer),
+        ]
+    }
+}
+
 /// Everything one `transfer_sol` call needs
 #[derive(Clone)]
 pub struct TransferSolRequest {
@@ -82,26 +122,24 @@ pub struct TransferSolRequest {
     pub relayer_fee: u64,
 }
 
-impl TransferSolRequest {
-    /// The bytes the enclave signs
-    pub fn preimage(&self) -> Vec<u8> {
-        let action = Action::TransferSol {
-            to: self.to.to_bytes(),
-            lamports: self.lamports,
-        };
-        Preimage {
-            program_id: enclavekit::id().to_bytes(),
+impl EnclaveRequest for TransferSolRequest {
+    fn authorization(&self) -> Authorization {
+        Authorization {
             wallet_id: self.wallet_id,
             nonce: self.nonce,
             expires_at: self.expires_at,
             max_relayer_fee: self.max_relayer_fee,
-            action: &action,
         }
-        .to_bytes()
     }
 
-    /// transfer_sol instruction alone
-    pub fn instruction(&self, relayer: &Pubkey) -> Instruction {
+    fn action(&self) -> Action {
+        Action::TransferSol {
+            to: self.to.to_bytes(),
+            lamports: self.lamports,
+        }
+    }
+
+    fn instruction(&self, relayer: &Pubkey) -> Instruction {
         Instruction::new_with_bytes(
             enclavekit::id(),
             &enclavekit::instruction::TransferSol {
@@ -124,13 +162,57 @@ impl TransferSolRequest {
             .to_account_metas(None),
         )
     }
+}
 
-    /// The pair a transaction carries: precompile first, `transfer_sol` second.
-    pub fn sign(&self, key: &EnclaveKey, relayer: &Pubkey) -> [Instruction; 2] {
-        [
-            key.precompile_instruction(&self.preimage()),
-            self.instruction(relayer),
-        ]
+/// Everything one `set_guardians` call needs
+#[derive(Clone)]
+pub struct SetGuardiansRequest {
+    pub wallet_id: [u8; 32],
+    pub guardians: [Guardian; MAX_GUARDIANS],
+    pub nonce: u64,
+    pub expires_at: i64,
+    pub max_relayer_fee: u64,
+    /// Asked by the relayer, outside the signed bytes.
+    pub relayer_fee: u64,
+}
+
+impl EnclaveRequest for SetGuardiansRequest {
+    fn authorization(&self) -> Authorization {
+        Authorization {
+            wallet_id: self.wallet_id,
+            nonce: self.nonce,
+            expires_at: self.expires_at,
+            max_relayer_fee: self.max_relayer_fee,
+        }
+    }
+
+    fn action(&self) -> Action {
+        Action::SetGuardians {
+            guardians: self.guardians.map(Into::into),
+        }
+    }
+
+    fn instruction(&self, relayer: &Pubkey) -> Instruction {
+        Instruction::new_with_bytes(
+            enclavekit::id(),
+            &enclavekit::instruction::SetGuardians {
+                wallet_id: self.wallet_id,
+                nonce: self.nonce,
+                expires_at: self.expires_at,
+                max_relayer_fee: self.max_relayer_fee,
+                guardians: self.guardians,
+                relayer_fee: self.relayer_fee,
+            }
+            .data(),
+            enclavekit::accounts::SetGuardians {
+                wallet: wallet_pda(&self.wallet_id),
+                vault: vault_pda(&self.wallet_id),
+                relayer: *relayer,
+                instructions_sysvar: solana_instructions_sysvar::ID,
+                system_program: system_program::ID,
+            }
+            .to_account_metas(None),
+        )
     }
 }
 
