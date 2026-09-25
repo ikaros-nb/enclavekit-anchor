@@ -28,7 +28,7 @@ pub enum Action {
         guardians: [Guardian; MAX_GUARDIANS],
     },
     SweepVault {
-        to: [u8; 32]
+        to: [u8; 32],
     },
     CloseWallet {
         to: [u8; 32],
@@ -77,12 +77,8 @@ mod tests {
             Action::SetGuardians {
                 guardians: [Guardian::P256([0x55; 33]), Guardian::None, Guardian::None],
             },
-            Action::SweepVault { 
-                to: [0x66; 32],
-            },
-            Action::CloseWallet {
-                to: [0x67; 32],
-            },
+            Action::SweepVault { to: [0x66; 32] },
+            Action::CloseWallet { to: [0x67; 32] },
         ];
 
         for (index, action) in actions.iter().enumerate() {
