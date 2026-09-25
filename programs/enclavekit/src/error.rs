@@ -28,4 +28,10 @@ pub enum EnclaveKitError {
     WebAuthnGuardianUnsupported,
     #[msg("No rotation is pending")]
     NoPendingRotation,
+    #[msg("The signing key is neither the active key nor a guardian")]
+    NotAGuardian,
+    #[msg("Another guardian's proposal is pending")]
+    RotationSlotTaken,
+    #[msg("The new key cannot be all zeros")]
+    InvalidNewKey,
 }

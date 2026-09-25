@@ -72,4 +72,22 @@ pub mod enclavekit {
         };
         ctx.accounts.cancel(authorization, relayer_fee)
     }
+
+    pub fn propose_rotation(
+        ctx: Context<ProposeRotation>,
+        wallet_id: [u8; 32],
+        nonce: u64,
+        expires_at: i64,
+        max_relayer_fee: u64,
+        new_key: [u8; COMPRESSED_PUBKEY_LEN],
+        relayer_fee: u64,
+    ) -> Result<()> {
+        let authorization = Authorization {
+            wallet_id,
+            nonce,
+            expires_at,
+            max_relayer_fee,
+        };
+        ctx.accounts.propose(authorization, new_key, relayer_fee)
+    }
 }

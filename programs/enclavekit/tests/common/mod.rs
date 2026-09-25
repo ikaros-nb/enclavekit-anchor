@@ -23,6 +23,7 @@ use solana_transaction::versioned::VersionedTransaction;
 use solana_transaction_error::TransactionError;
 
 /// A P-256 key standing in for the Secure Enclave.
+#[derive(Clone)]
 pub struct EnclaveKey(SigningKey);
 
 impl EnclaveKey {
@@ -253,6 +254,58 @@ impl EnclaveRequest for CancelRotationRequest {
             }
             .data(),
             enclavekit::accounts::CancelRotation {
+                wallet: wallet_pda(&self.wallet_id),
+                vault: vault_pda(&self.wallet_id),
+                relayer: *relayer,
+                instructions_sysvar: solana_instructions_sysvar::ID,
+                system_program: system_program::ID,
+            }
+            .to_account_metas(None),
+        )
+    }
+}
+
+/// Everything one `propose_rotation` call needs
+#[derive(Clone)]
+pub struct ProposeRotationRequest {
+    pub wallet_id: [u8; 32],
+    pub new_key: [u8; 33],
+    pub nonce: u64,
+    pub expires_at: i64,
+    pub max_relayer_fee: u64,
+    /// Asked by the relayer, outside the signed bytes.
+    pub relayer_fee: u64,
+}
+
+impl EnclaveRequest for ProposeRotationRequest {
+    fn authorization(&self) -> Authorization {
+        Authorization {
+            wallet_id: self.wallet_id,
+            nonce: self.nonce,
+            expires_at: self.expires_at,
+            max_relayer_fee: self.max_relayer_fee,
+        }
+    }
+
+    fn action(&self) -> Action {
+        Action::ProposeRotation {
+            new_key: self.new_key,
+        }
+    }
+
+    fn instruction(&self, relayer: &Pubkey) -> Instruction {
+        Instruction::new_with_bytes(
+            enclavekit::id(),
+            &enclavekit::instruction::ProposeRotation {
+                wallet_id: self.wallet_id,
+                nonce: self.nonce,
+                expires_at: self.expires_at,
+                max_relayer_fee: self.max_relayer_fee,
+                new_key: self.new_key,
+                relayer_fee: self.relayer_fee,
+            }
+            .data(),
+            enclavekit::accounts::ProposeRotation {
                 wallet: wallet_pda(&self.wallet_id),
                 vault: vault_pda(&self.wallet_id),
                 relayer: *relayer,
