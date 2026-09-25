@@ -317,6 +317,21 @@ impl EnclaveRequest for ProposeRotationRequest {
     }
 }
 
+/// `confirm_rotation` alone: nothing to sign, anyone may send it.
+pub fn confirm_rotation_instruction(wallet_id: &[u8; 32]) -> Instruction {
+    Instruction::new_with_bytes(
+        enclavekit::id(),
+        &enclavekit::instruction::ConfirmRotation {
+            _wallet_id: *wallet_id,
+        }
+        .data(),
+        enclavekit::accounts::ConfirmRotation {
+            wallet: wallet_pda(wallet_id),
+        }
+        .to_account_metas(None),
+    )
+}
+
 pub struct Env {
     pub svm: LiteSVM,
     pub payer: Keypair,
@@ -354,6 +369,13 @@ impl Env {
 
     pub fn balance(&self, address: &Pubkey) -> u64 {
         self.svm.get_balance(address).unwrap_or(0)
+    }
+
+    /// Moves the Clock sysvar forward: the program reads its time from it.
+    pub fn warp(&mut self, seconds: i64) {
+        let mut clock = self.svm.get_sysvar::<Clock>();
+        clock.unix_timestamp += seconds;
+        self.svm.set_sysvar(&clock);
     }
 
     pub fn wallet(&self, wallet_id: &[u8; 32]) -> Option<SmartWallet> {

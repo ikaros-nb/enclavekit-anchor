@@ -73,17 +73,21 @@ impl<'info> ProposeRotation<'info> {
                 .position(|guardian| *guardian == Guardian::P256(signer))
                 .ok_or(EnclaveKitError::NotAGuardian)?;
 
-            // A guardian may replace its own proposal, never another's.
+            let now = Clock::get()?.unix_timestamp;
+
+            // A guardian may replace its own proposal, never another's, unless
+            // that one ran out of its window: an abandoned proposal must not
+            // lock the other guardians out while the owner is gone.
             if let Some(pending) = &self.wallet.rotation {
                 require!(
-                    pending.proposed_by as usize == slot,
+                    pending.proposed_by as usize == slot || pending.is_expired(now),
                     EnclaveKitError::RotationSlotTaken
                 );
             }
 
             self.wallet.rotation = Some(PendingRotation {
                 new_key,
-                proposed_at: Clock::get()?.unix_timestamp,
+                proposed_at: now,
                 proposed_by: slot as u8,
             });
         }

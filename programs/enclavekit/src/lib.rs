@@ -90,4 +90,8 @@ pub mod enclavekit {
         };
         ctx.accounts.propose(authorization, new_key, relayer_fee)
     }
+
+    pub fn confirm_rotation(ctx: Context<ConfirmRotation>, _wallet_id: [u8; 32]) -> Result<()> {
+        ctx.accounts.confirm()
+    }
 }

@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::constants::{COMPRESSED_PUBKEY_LEN, MAX_GUARDIANS};
+use crate::constants::{COMPRESSED_PUBKEY_LEN, MAX_GUARDIANS, ROTATION_DELAY, ROTATION_WINDOW};
 
 #[account]
 #[derive(InitSpace)]
@@ -26,6 +26,23 @@ pub struct PendingRotation {
     pub new_key: [u8; COMPRESSED_PUBKEY_LEN],
     pub proposed_at: i64,
     pub proposed_by: u8,
+}
+
+impl PendingRotation {
+    /// First second at which `confirm_rotation` accepts it.
+    pub fn opens_at(&self) -> i64 {
+        self.proposed_at.saturating_add(ROTATION_DELAY)
+    }
+
+    /// Last second at which `confirm_rotation` accepts it.
+    pub fn closes_at(&self) -> i64 {
+        self.opens_at().saturating_add(ROTATION_WINDOW)
+    }
+
+    /// Past its window: nobody confirmed in time, it no longer blocks anyone.
+    pub fn is_expired(&self, now: i64) -> bool {
+        now > self.closes_at()
+    }
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, InitSpace, Clone, Copy, PartialEq, Eq, Debug)]

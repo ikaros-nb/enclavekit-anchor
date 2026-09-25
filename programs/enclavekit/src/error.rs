@@ -34,4 +34,8 @@ pub enum EnclaveKitError {
     RotationSlotTaken,
     #[msg("The new key cannot be all zeros")]
     InvalidNewKey,
+    #[msg("The rotation timelock has not elapsed yet")]
+    RotationTooEarly,
+    #[msg("The rotation window has closed")]
+    RotationExpired,
 }
