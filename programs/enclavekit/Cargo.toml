@@ -18,6 +18,7 @@ idl-build = ["anchor-lang/idl-build"]
 anchor-debug = []
 custom-heap = []
 custom-panic = []
+devnet = []
 
 
 [dependencies]

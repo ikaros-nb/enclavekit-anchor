@@ -58,6 +58,12 @@ pub const SECP256R1_MESSAGE_OFFSET: usize = SECP256R1_SIGNATURE_OFFSET + P256_SI
 
 /// Seconds a guardian's proposal must wait before it can be confirmed:
 /// the time the owner has to cancel it. 72 hours.
+#[cfg(not(feature = "devnet"))]
 pub const ROTATION_DELAY: i64 = 72 * 60 * 60;
+/// Devnet build only, can confirm within a minute
+#[cfg(feature = "devnet")]
+#[constant]
+pub const ROTATION_DELAY: i64 = 60;
+
 /// Seconds the proposal stays confirmable once the delay has passed. 7 days.
 pub const ROTATION_WINDOW: i64 = 7 * 24 * 60 * 60;
