@@ -6,12 +6,12 @@ skip_local_validator = true
 resolution = true
 skip-lint = false
 
-[programs.localnet]
+[programs.devnet]
 enclavekit = "dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY"
 
 [provider]
-cluster = "localnet"
-wallet = "~/.config/solana/id.json"
+cluster = "devnet"
+wallet = "~/.config/solana/wallet-a.json"
 
 [scripts]
 test = "cargo test"

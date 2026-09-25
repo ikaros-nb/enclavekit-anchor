@@ -1,7 +1,7 @@
 [package]
 name = "enclavekit"
 version = "0.1.0"
-description = "Created with Anchor"
+description = "Smart wallet controlled by an iPhone Secure Enclave P-256 key via the secp256r1 precompile"
 edition.workspace = true
 rust-version.workspace = true
 
