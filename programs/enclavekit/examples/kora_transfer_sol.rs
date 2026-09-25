@@ -13,9 +13,7 @@
 //! ```
 //!
 //! A fresh enclave key is drawn on every run. Set `ENCLAVE_SEED` (64 hex
-//! chars) to reuse a wallet: the nonce is then read on-chain. The unsigned
-//! transaction handed to Kora is written to `target/kora_transfer_sol.b64`,
-//! the reference the Swift SDK must reproduce byte for byte.
+//! chars) to reuse a wallet: the nonce is then read on-chain.
 
 #[path = "../tests/common/requests.rs"]
 mod requests;
@@ -43,10 +41,6 @@ use solana_transaction::versioned::VersionedTransaction;
 
 const KORA_URL: &str = "http://127.0.0.1:8080";
 const RPC_URL: &str = "https://api.devnet.solana.com";
-const UNSIGNED_TX_PATH: &str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../target/kora_transfer_sol.b64"
-);
 
 /// What the wallet sends to `to`.
 const LAMPORTS: u64 = 10_000_000;
@@ -130,8 +124,6 @@ fn main() -> Result<()> {
         message: VersionedMessage::Legacy(message),
     };
     let unsigned_b64 = BASE64.encode(bincode::serialize(&unsigned)?);
-    fs::write(UNSIGNED_TX_PATH, &unsigned_b64)?;
-    println!("unsigned transaction written to {UNSIGNED_TX_PATH}");
 
     // 5. Kora validates, simulates, signs as fee payer and sends.
     let relayer_before = balance(&rpc, &relayer)?;

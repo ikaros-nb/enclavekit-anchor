@@ -51,7 +51,7 @@ kora --config kora/kora.toml config validate
 kora --config kora/kora.toml --rpc-url https://api.devnet.solana.com rpc start --signers-config kora/signers.toml
 ```
 
-With Kora running, send one `transfer_sol` on devnet through it. The vault is funded from the Solana CLI wallet and the unsigned transaction is written to `target/kora_transfer_sol.b64`:
+With Kora running, send one `transfer_sol` on devnet through it. The vault is funded from the Solana CLI wallet:
 
 ```bash
 cargo run -p enclavekit --example kora_transfer_sol
