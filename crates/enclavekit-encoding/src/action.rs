@@ -28,8 +28,11 @@ pub enum Action {
     SetGuardians {
         guardians: [Guardian; MAX_GUARDIANS],
     },
+    SweepVault {
+        to: [u8; 32]
+    },
     CloseWallet {
-        rent_to: [u8; 32],
+        to: [u8; 32],
     },
 }
 
@@ -75,8 +78,11 @@ mod tests {
             Action::SetGuardians {
                 guardians: [Guardian::P256([0x55; 33]), Guardian::None, Guardian::None],
             },
+            Action::SweepVault { 
+                to: [0x66; 32],
+            },
             Action::CloseWallet {
-                rent_to: [0x66; 32],
+                to: [0x67; 32],
             },
         ];
 
