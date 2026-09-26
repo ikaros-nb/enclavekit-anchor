@@ -2,6 +2,7 @@
 members = [
     "programs/enclavekit",
     "crates/enclavekit-encoding",
+    "crates/gen-vectors",
 ]
 resolver = "2"
 
