@@ -6,6 +6,7 @@ The user signs an action with the enclave key. The program checks the signature 
 
 - `programs/enclavekit`: the Anchor program.
 - `crates/enclavekit-encoding`: action and preimage encoding shared with the Swift SDK. No Solana dependency.
+- `crates/gen-vectors`: writes the conformance vectors in `vectors/`.
 
 ## On devnet
 
@@ -38,6 +39,22 @@ anchor idl upgrade -f target/idl/enclavekit.json dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn
 ```
 
 Tests read the rotation constants from the crate they are compiled with, so always run them against a `.so` built with the same features. Never run `anchor build` and `cargo test` at the same time.
+
+## Conformance vectors
+
+`vectors/` holds what any SDK must reproduce byte for byte, generated from the Rust encoding with a fixed test key:
+
+| File | Contents |
+|---|---|
+| `key.json` | Private scalar, compressed public key, `wallet_id`, program id, the two PDAs with their bumps. |
+| `actions.json` | For each implemented `Action`: fields, borsh, full preimage, low-S signature and the complete `secp256r1` instruction data. |
+| `high_s.json` | One signature in high-S and low-S form. |
+| `transaction.json` | The `transfer_sol` case wrapped in the unsigned transaction handed to Kora: program instruction, message bytes and base64. |
+
+```bash
+cargo run -p gen-vectors      # regenerate after any change to the encoding
+cargo test -p gen-vectors     # fails when the committed vectors are stale
+```
 
 ## Relayer
 
