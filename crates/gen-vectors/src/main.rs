@@ -47,6 +47,7 @@ fn main() {
     let key = EnclaveKey::from_seed(PRIVATE_KEY);
     write(&out, "key.json", &key_vector(&key));
     write(&out, "actions.json", &actions_vector(&key));
+    write(&out, "high_s.json", &high_s_vector(&key));
 }
 
 // --- key.json -------------------------------------------------------------
@@ -215,6 +216,26 @@ fn actions_vector(key: &EnclaveKey) -> ActionsVector {
     }
 }
 
+// --- high_s.json ----------------------------------------------------------
+
+/// The same ECDSA signature in both forms. Only `low_s` passes the
+/// precompile; the SDK must normalise before sending.
+#[derive(Serialize)]
+struct HighSVector {
+    message: Hex,
+    high_s: Hex,
+    low_s: Hex,
+}
+
+fn high_s_vector(key: &EnclaveKey) -> HighSVector {
+    let message = b"enclavekit high-S vector";
+    HighSVector {
+        message: message.to_vec().into(),
+        high_s: key.sign_high_s(message).into(),
+        low_s: key.sign(message).into(),
+    }
+}
+
 // --- the test key ---------------------------------------------------------
 
 /// A P-256 key standing in for the Secure Enclave.
@@ -242,6 +263,16 @@ impl EnclaveKey {
     fn sign(&self, message: &[u8]) -> [u8; 64] {
         let signature: Signature = self.0.sign(message);
         signature.normalize_s().to_bytes().into()
+    }
+
+    /// Same signature with `s` replaced by `n - s`: still valid ECDSA, but
+    /// high-S, which the precompile refuses.
+    fn sign_high_s(&self, message: &[u8]) -> [u8; 64] {
+        let signature: Signature = self.0.sign(message);
+        let (r, s) = signature.normalize_s().split_scalars();
+        let high = Signature::from_scalars(r.to_bytes(), (-*s).to_bytes())
+            .expect("n - s is a valid non-zero scalar");
+        high.to_bytes().into()
     }
 }
 
