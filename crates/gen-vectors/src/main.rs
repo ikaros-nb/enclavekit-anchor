@@ -6,10 +6,7 @@
 //! cargo run -p gen-vectors
 //! ```
 
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::{fs, path::PathBuf};
 
 use anchor_lang::prelude::Pubkey;
 use anchor_lang::solana_program::{
@@ -59,11 +56,22 @@ fn main() {
     fs::create_dir_all(&out).expect("create vectors/");
     let out = out.canonicalize().expect("vectors/ exists");
 
+    for (name, json) in vectors() {
+        let path = out.join(name);
+        fs::write(&path, json).unwrap_or_else(|e| panic!("write {}: {e}", path.display()));
+        println!("wrote {}", path.display());
+    }
+}
+
+/// Every file, as `(name, contents)`.
+fn vectors() -> Vec<(&'static str, String)> {
     let key = EnclaveKey::from_seed(PRIVATE_KEY);
-    write(&out, "key.json", &key_vector(&key));
-    write(&out, "actions.json", &actions_vector(&key));
-    write(&out, "high_s.json", &high_s_vector(&key));
-    write(&out, "transaction.json", &transaction_vector(&key));
+    vec![
+        ("key.json", render(&key_vector(&key))),
+        ("actions.json", render(&actions_vector(&key))),
+        ("high_s.json", render(&high_s_vector(&key))),
+        ("transaction.json", render(&transaction_vector(&key))),
+    ]
 }
 
 // --- key.json -------------------------------------------------------------
@@ -435,9 +443,26 @@ fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-fn write<T: Serialize>(dir: &Path, name: &str, value: &T) {
-    let path = dir.join(name);
-    let json = serde_json::to_string_pretty(value).expect("vector is serialisable");
-    fs::write(&path, json + "\n").unwrap_or_else(|e| panic!("write {}: {e}", path.display()));
-    println!("wrote {}", path.display());
+/// Pretty JSON with a final newline, for a clean `git diff`.
+fn render<T: Serialize>(value: &T) -> String {
+    serde_json::to_string_pretty(value).expect("vector is serialisable") + "\n"
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn committed_vectors_are_up_to_date() {
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../vectors");
+        for (name, expected) in vectors() {
+            let path = dir.join(name);
+            let committed = fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+            assert!(
+                committed == expected,
+                "{name} is stale: regenerate with `cargo run -p gen-vectors`"
+            );
+        }
+    }
 }
