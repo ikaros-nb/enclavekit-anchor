@@ -12,6 +12,12 @@ use std::{
 };
 
 use anchor_lang::prelude::Pubkey;
+use anchor_lang::solana_program::{
+    instruction::{AccountMeta, Instruction},
+    system_program,
+};
+use anchor_lang::{InstructionData, ToAccountMetas};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use enclavekit::{VAULT_SEED, WALLET_SEED};
 use enclavekit_encoding::{
     action::Action, action::Guardian, preimage::Preimage, wallet::wallet_id,
@@ -20,7 +26,10 @@ use p256::ecdsa::{signature::Signer as _, Signature, SigningKey};
 use p256::elliptic_curve::sec1::ToSec1Point;
 use serde::{Serialize, Serializer};
 use serde_json::{json, Value};
+use solana_hash::Hash;
+use solana_message::{Message, VersionedMessage};
 use solana_secp256r1_program::new_secp256r1_instruction_with_signature;
+use solana_transaction::versioned::VersionedTransaction;
 
 /// Private scalar of the test key.
 const PRIVATE_KEY: [u8; 32] = [
@@ -39,6 +48,12 @@ const LAMPORTS: u64 = 10_000_000;
 const NEW_KEY_SEED: [u8; 32] = [0x44; 32];
 const GUARDIAN_SEED: [u8; 32] = [0x55; 32];
 
+// The transaction around the `transfer_sol` case.
+const RELAYER: [u8; 32] = [0x77; 32];
+const BLOCKHASH: [u8; 32] = [0x88; 32];
+/// Asked by the relayer, outside the signed bytes.
+const RELAYER_FEE: u64 = MAX_RELAYER_FEE;
+
 fn main() {
     let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../vectors");
     fs::create_dir_all(&out).expect("create vectors/");
@@ -48,6 +63,7 @@ fn main() {
     write(&out, "key.json", &key_vector(&key));
     write(&out, "actions.json", &actions_vector(&key));
     write(&out, "high_s.json", &high_s_vector(&key));
+    write(&out, "transaction.json", &transaction_vector(&key));
 }
 
 // --- key.json -------------------------------------------------------------
@@ -233,6 +249,122 @@ fn high_s_vector(key: &EnclaveKey) -> HighSVector {
         message: message.to_vec().into(),
         high_s: key.sign_high_s(message).into(),
         low_s: key.sign(message).into(),
+    }
+}
+
+// --- transaction.json -----------------------------------------------------
+
+/// The `transfer_sol` case of `actions.json` wrapped in the transaction the
+/// SDK hands to Kora: precompile first, program second, relayer as fee payer,
+/// one empty signature slot.
+#[derive(Serialize)]
+struct TransactionVector {
+    relayer: String,
+    relayer_fee: u64,
+    blockhash: String,
+    program_instruction: ProgramInstructionVector,
+    /// Legacy message bytes: what the fee payer signs.
+    message: Hex,
+    /// Unsigned transaction, base64, as sent to `signAndSendTransaction`.
+    transaction: String,
+}
+
+#[derive(Serialize)]
+struct ProgramInstructionVector {
+    program_id: String,
+    accounts: Vec<AccountMetaVector>,
+    /// `sha256("global:transfer_sol")[..8]`, the first 8 bytes of `data`.
+    discriminator: Hex,
+    data: Hex,
+}
+
+#[derive(Serialize)]
+struct AccountMetaVector {
+    pubkey: String,
+    is_signer: bool,
+    is_writable: bool,
+}
+
+impl From<&AccountMeta> for AccountMetaVector {
+    fn from(meta: &AccountMeta) -> Self {
+        Self {
+            pubkey: meta.pubkey.to_string(),
+            is_signer: meta.is_signer,
+            is_writable: meta.is_writable,
+        }
+    }
+}
+
+fn transaction_vector(key: &EnclaveKey) -> TransactionVector {
+    let wallet_id = key.wallet_id();
+    let relayer = Pubkey::new_from_array(RELAYER);
+    let to = Pubkey::new_from_array(TO);
+
+    // Same action, same header as in actions.json: the precompile
+    // instruction is the one written there.
+    let action = Action::TransferSol {
+        to: TO,
+        lamports: LAMPORTS,
+    };
+    let preimage = Preimage {
+        program_id: enclavekit::id().to_bytes(),
+        wallet_id,
+        nonce: NONCE,
+        expires_at: EXPIRES_AT,
+        max_relayer_fee: MAX_RELAYER_FEE,
+        action: &action,
+    }
+    .to_bytes();
+    let precompile = new_secp256r1_instruction_with_signature(
+        &preimage,
+        &key.sign(&preimage),
+        &key.compressed_pubkey(),
+    );
+
+    let program = Instruction::new_with_bytes(
+        enclavekit::id(),
+        &enclavekit::instruction::TransferSol {
+            wallet_id,
+            nonce: NONCE,
+            expires_at: EXPIRES_AT,
+            max_relayer_fee: MAX_RELAYER_FEE,
+            lamports: LAMPORTS,
+            relayer_fee: RELAYER_FEE,
+        }
+        .data(),
+        enclavekit::accounts::TransferSol {
+            wallet: Pubkey::find_program_address(&[WALLET_SEED, &wallet_id], &enclavekit::id()).0,
+            vault: Pubkey::find_program_address(&[VAULT_SEED, &wallet_id], &enclavekit::id()).0,
+            to,
+            relayer,
+            instructions_sysvar: solana_instructions_sysvar::ID,
+            system_program: system_program::ID,
+        }
+        .to_account_metas(None),
+    );
+
+    let blockhash = Hash::new_from_array(BLOCKHASH);
+    let message =
+        Message::new_with_blockhash(&[precompile, program.clone()], Some(&relayer), &blockhash);
+    let unsigned = VersionedTransaction {
+        signatures: vec![Default::default()],
+        message: VersionedMessage::Legacy(message.clone()),
+    };
+
+    TransactionVector {
+        relayer: relayer.to_string(),
+        relayer_fee: RELAYER_FEE,
+        blockhash: blockhash.to_string(),
+        program_instruction: ProgramInstructionVector {
+            program_id: program.program_id.to_string(),
+            accounts: program.accounts.iter().map(Into::into).collect(),
+            discriminator: program.data[..8].to_vec().into(),
+            data: program.data.into(),
+        },
+        message: bincode::serialize(&message)
+            .expect("bincode into a Vec")
+            .into(),
+        transaction: BASE64.encode(bincode::serialize(&unsigned).expect("bincode into a Vec")),
     }
 }
 

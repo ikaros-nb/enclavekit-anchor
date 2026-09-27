@@ -1626,6 +1626,7 @@ name = "gen-vectors"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "base64 0.22.1",
  "bincode",
  "borsh",
  "enclavekit",
@@ -1634,6 +1635,7 @@ dependencies = [
  "serde",
  "serde_json",
  "solana-hash",
+ "solana-instructions-sysvar 3.0.1",
  "solana-message",
  "solana-secp256r1-program",
  "solana-transaction",
