@@ -1,0 +1,14 @@
+{
+  "private_key": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+  "compressed_pubkey": "02515c3d6eb9e396b904d3feca7f54fdcd0cc1e997bf375dca515ad0a6c3b4035f",
+  "wallet_id": "d284f0626fd0836ce4b1731793fa69059e02668600519365b33c55bd94512735",
+  "program_id": "dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY",
+  "wallet": {
+    "address": "EKyNGE7ecVLS8GYLf13LypzugwLbRQuRVNvNQdu9jQxF",
+    "bump": 255
+  },
+  "vault": {
+    "address": "hYEjxsHxt6UeiMra3eqTxzuWKTWMbC7Q4qjZLV5NpZK",
+    "bump": 255
+  }
+}
