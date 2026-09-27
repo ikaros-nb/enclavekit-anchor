@@ -34,6 +34,7 @@ const MAX_RELAYER_FEE: u64 = 10_000;
 // Recognisable field values: one repeated byte per address.
 const TO: [u8; 32] = [0x11; 32];
 const LAMPORTS: u64 = 10_000_000;
+const NEW_KEY_SEED: [u8; 32] = [0x44; 32];
 
 fn main() {
     let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../vectors");
@@ -124,6 +125,12 @@ fn cases() -> Vec<(&'static str, Action)> {
                 lamports: LAMPORTS,
             },
         ),
+        (
+            "propose_rotation",
+            Action::ProposeRotation {
+                new_key: EnclaveKey::from_seed(NEW_KEY_SEED).compressed_pubkey(),
+            },
+        ),
         ("cancel_rotation", Action::CancelRotation),
         // propose_rotation, set_guardians,
     ]
@@ -134,6 +141,9 @@ fn fields(action: &Action) -> Value {
         Action::TransferSol { to, lamports } => json!({
             "to": hex(to),
             "lamports": lamports,
+        }),
+        Action::ProposeRotation { new_key } => json!({
+            "new_key": hex(new_key),
         }),
         Action::CancelRotation => json!({}),
         other => todo!("fields of {other:?}"),
