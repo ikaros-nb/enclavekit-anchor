@@ -13,7 +13,9 @@ use std::{
 
 use anchor_lang::prelude::Pubkey;
 use enclavekit::{VAULT_SEED, WALLET_SEED};
-use enclavekit_encoding::{action::Action, preimage::Preimage, wallet::wallet_id};
+use enclavekit_encoding::{
+    action::Action, action::Guardian, preimage::Preimage, wallet::wallet_id,
+};
 use p256::ecdsa::{signature::Signer as _, Signature, SigningKey};
 use p256::elliptic_curve::sec1::ToSec1Point;
 use serde::{Serialize, Serializer};
@@ -35,6 +37,7 @@ const MAX_RELAYER_FEE: u64 = 10_000;
 const TO: [u8; 32] = [0x11; 32];
 const LAMPORTS: u64 = 10_000_000;
 const NEW_KEY_SEED: [u8; 32] = [0x44; 32];
+const GUARDIAN_SEED: [u8; 32] = [0x55; 32];
 
 fn main() {
     let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../vectors");
@@ -132,7 +135,16 @@ fn cases() -> Vec<(&'static str, Action)> {
             },
         ),
         ("cancel_rotation", Action::CancelRotation),
-        // propose_rotation, set_guardians,
+        (
+            "set_guardians",
+            Action::SetGuardians {
+                guardians: [
+                    Guardian::P256(EnclaveKey::from_seed(GUARDIAN_SEED).compressed_pubkey()),
+                    Guardian::None,
+                    Guardian::None,
+                ],
+            },
+        ),
     ]
 }
 
@@ -146,7 +158,18 @@ fn fields(action: &Action) -> Value {
             "new_key": hex(new_key),
         }),
         Action::CancelRotation => json!({}),
+        Action::SetGuardians { guardians } => json!({
+            "guardians": guardians.iter().map(guardian).collect::<Vec<Value>>(),
+        }),
         other => todo!("fields of {other:?}"),
+    }
+}
+
+fn guardian(guardian: &Guardian) -> Value {
+    match guardian {
+        Guardian::None => json!("None"),
+        Guardian::P256(key) => json!({ "P256": hex(key) }),
+        Guardian::WebAuthn(key) => json!({ "WebAuthn": hex(key) }),
     }
 }
 
