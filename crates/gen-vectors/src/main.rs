@@ -124,7 +124,8 @@ fn cases() -> Vec<(&'static str, Action)> {
                 lamports: LAMPORTS,
             },
         ),
-        // cancel_rotation, propose_rotation, set_guardians,
+        ("cancel_rotation", Action::CancelRotation),
+        // propose_rotation, set_guardians,
     ]
 }
 
@@ -134,6 +135,7 @@ fn fields(action: &Action) -> Value {
             "to": hex(to),
             "lamports": lamports,
         }),
+        Action::CancelRotation => json!({}),
         other => todo!("fields of {other:?}"),
     }
 }
