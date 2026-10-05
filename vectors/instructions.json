@@ -1,0 +1,166 @@
+{
+  "relayer": "93MB2qRDNVLxbmmPuYpLdAqn3u2x9ZhaVZK5wELHueP8",
+  "relayer_fee": 10000,
+  "instructions": [
+    {
+      "name": "transfer_sol",
+      "program_instruction": {
+        "program_id": "dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY",
+        "accounts": [
+          {
+            "pubkey": "EKyNGE7ecVLS8GYLf13LypzugwLbRQuRVNvNQdu9jQxF",
+            "is_signer": false,
+            "is_writable": true
+          },
+          {
+            "pubkey": "hYEjxsHxt6UeiMra3eqTxzuWKTWMbC7Q4qjZLV5NpZK",
+            "is_signer": false,
+            "is_writable": true
+          },
+          {
+            "pubkey": "29d2S7vB453rNYFdR5Ycwt7y9haRT5fwVwL9zTmBhfV2",
+            "is_signer": false,
+            "is_writable": true
+          },
+          {
+            "pubkey": "93MB2qRDNVLxbmmPuYpLdAqn3u2x9ZhaVZK5wELHueP8",
+            "is_signer": true,
+            "is_writable": true
+          },
+          {
+            "pubkey": "Sysvar1nstructions1111111111111111111111111",
+            "is_signer": false,
+            "is_writable": false
+          },
+          {
+            "pubkey": "11111111111111111111111111111111",
+            "is_signer": false,
+            "is_writable": false
+          }
+        ],
+        "discriminator": "4e0aecf76d75154c",
+        "data": "4e0aecf76d75154cd284f0626fd0836ce4b1731793fa69059e02668600519365b33c55bd94512735070000000000000000f1536500000000102700000000000080969800000000001027000000000000"
+      }
+    },
+    {
+      "name": "propose_rotation",
+      "program_instruction": {
+        "program_id": "dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY",
+        "accounts": [
+          {
+            "pubkey": "EKyNGE7ecVLS8GYLf13LypzugwLbRQuRVNvNQdu9jQxF",
+            "is_signer": false,
+            "is_writable": true
+          },
+          {
+            "pubkey": "hYEjxsHxt6UeiMra3eqTxzuWKTWMbC7Q4qjZLV5NpZK",
+            "is_signer": false,
+            "is_writable": true
+          },
+          {
+            "pubkey": "93MB2qRDNVLxbmmPuYpLdAqn3u2x9ZhaVZK5wELHueP8",
+            "is_signer": true,
+            "is_writable": true
+          },
+          {
+            "pubkey": "Sysvar1nstructions1111111111111111111111111",
+            "is_signer": false,
+            "is_writable": false
+          },
+          {
+            "pubkey": "11111111111111111111111111111111",
+            "is_signer": false,
+            "is_writable": false
+          }
+        ],
+        "discriminator": "c52b9ba99b4b5e7d",
+        "data": "c52b9ba99b4b5e7dd284f0626fd0836ce4b1731793fa69059e02668600519365b33c55bd94512735070000000000000000f15365000000001027000000000000025b36890dacbd7c9a96bb74a1ee28b3d2d75b72e09a20ef25cf8e6fd8a9f0350d1027000000000000"
+      }
+    },
+    {
+      "name": "cancel_rotation",
+      "program_instruction": {
+        "program_id": "dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY",
+        "accounts": [
+          {
+            "pubkey": "EKyNGE7ecVLS8GYLf13LypzugwLbRQuRVNvNQdu9jQxF",
+            "is_signer": false,
+            "is_writable": true
+          },
+          {
+            "pubkey": "hYEjxsHxt6UeiMra3eqTxzuWKTWMbC7Q4qjZLV5NpZK",
+            "is_signer": false,
+            "is_writable": true
+          },
+          {
+            "pubkey": "93MB2qRDNVLxbmmPuYpLdAqn3u2x9ZhaVZK5wELHueP8",
+            "is_signer": true,
+            "is_writable": true
+          },
+          {
+            "pubkey": "Sysvar1nstructions1111111111111111111111111",
+            "is_signer": false,
+            "is_writable": false
+          },
+          {
+            "pubkey": "11111111111111111111111111111111",
+            "is_signer": false,
+            "is_writable": false
+          }
+        ],
+        "discriminator": "21b5192b642238fa",
+        "data": "21b5192b642238fad284f0626fd0836ce4b1731793fa69059e02668600519365b33c55bd94512735070000000000000000f153650000000010270000000000001027000000000000"
+      }
+    },
+    {
+      "name": "set_guardians",
+      "program_instruction": {
+        "program_id": "dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY",
+        "accounts": [
+          {
+            "pubkey": "EKyNGE7ecVLS8GYLf13LypzugwLbRQuRVNvNQdu9jQxF",
+            "is_signer": false,
+            "is_writable": true
+          },
+          {
+            "pubkey": "hYEjxsHxt6UeiMra3eqTxzuWKTWMbC7Q4qjZLV5NpZK",
+            "is_signer": false,
+            "is_writable": true
+          },
+          {
+            "pubkey": "93MB2qRDNVLxbmmPuYpLdAqn3u2x9ZhaVZK5wELHueP8",
+            "is_signer": true,
+            "is_writable": true
+          },
+          {
+            "pubkey": "Sysvar1nstructions1111111111111111111111111",
+            "is_signer": false,
+            "is_writable": false
+          },
+          {
+            "pubkey": "11111111111111111111111111111111",
+            "is_signer": false,
+            "is_writable": false
+          }
+        ],
+        "discriminator": "a6458cb79da9fd28",
+        "data": "a6458cb79da9fd28d284f0626fd0836ce4b1731793fa69059e02668600519365b33c55bd94512735070000000000000000f15365000000001027000000000000010257e977f6db7e33c3fe7acf2842ed987009caf56d458682fca447b7d3d762ab3400001027000000000000"
+      }
+    },
+    {
+      "name": "confirm_rotation",
+      "program_instruction": {
+        "program_id": "dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY",
+        "accounts": [
+          {
+            "pubkey": "EKyNGE7ecVLS8GYLf13LypzugwLbRQuRVNvNQdu9jQxF",
+            "is_signer": false,
+            "is_writable": true
+          }
+        ],
+        "discriminator": "8125660f8f2371f6",
+        "data": "8125660f8f2371f6d284f0626fd0836ce4b1731793fa69059e02668600519365b33c55bd94512735"
+      }
+    }
+  ]
+}

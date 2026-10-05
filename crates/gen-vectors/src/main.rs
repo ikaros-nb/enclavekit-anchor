@@ -45,7 +45,8 @@ const LAMPORTS: u64 = 10_000_000;
 const NEW_KEY_SEED: [u8; 32] = [0x44; 32];
 const GUARDIAN_SEED: [u8; 32] = [0x55; 32];
 
-// The transaction around the `transfer_sol` case.
+// The relayer of every program instruction, and the transaction around the
+// `transfer_sol` case.
 const RELAYER: [u8; 32] = [0x77; 32];
 const BLOCKHASH: [u8; 32] = [0x88; 32];
 /// Asked by the relayer, outside the signed bytes.
@@ -71,6 +72,7 @@ fn vectors() -> Vec<(&'static str, String)> {
         ("actions.json", render(&actions_vector(&key))),
         ("high_s.json", render(&high_s_vector(&key))),
         ("transaction.json", render(&transaction_vector(&key))),
+        ("instructions.json", render(&instructions_vector(&key))),
     ]
 }
 
@@ -281,9 +283,20 @@ struct TransactionVector {
 struct ProgramInstructionVector {
     program_id: String,
     accounts: Vec<AccountMetaVector>,
-    /// `sha256("global:transfer_sol")[..8]`, the first 8 bytes of `data`.
+    /// `sha256("global:<name>")[..8]`, the first 8 bytes of `data`.
     discriminator: Hex,
     data: Hex,
+}
+
+impl From<&Instruction> for ProgramInstructionVector {
+    fn from(instruction: &Instruction) -> Self {
+        Self {
+            program_id: instruction.program_id.to_string(),
+            accounts: instruction.accounts.iter().map(Into::into).collect(),
+            discriminator: instruction.data[..8].to_vec().into(),
+            data: instruction.data.clone().into(),
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -306,7 +319,6 @@ impl From<&AccountMeta> for AccountMetaVector {
 fn transaction_vector(key: &EnclaveKey) -> TransactionVector {
     let wallet_id = key.wallet_id();
     let relayer = Pubkey::new_from_array(RELAYER);
-    let to = Pubkey::new_from_array(TO);
 
     // Same action, same header as in actions.json: the precompile
     // instruction is the one written there.
@@ -329,27 +341,7 @@ fn transaction_vector(key: &EnclaveKey) -> TransactionVector {
         &key.compressed_pubkey(),
     );
 
-    let program = Instruction::new_with_bytes(
-        enclavekit::id(),
-        &enclavekit::instruction::TransferSol {
-            wallet_id,
-            nonce: NONCE,
-            expires_at: EXPIRES_AT,
-            max_relayer_fee: MAX_RELAYER_FEE,
-            lamports: LAMPORTS,
-            relayer_fee: RELAYER_FEE,
-        }
-        .data(),
-        enclavekit::accounts::TransferSol {
-            wallet: Pubkey::find_program_address(&[WALLET_SEED, &wallet_id], &enclavekit::id()).0,
-            vault: Pubkey::find_program_address(&[VAULT_SEED, &wallet_id], &enclavekit::id()).0,
-            to,
-            relayer,
-            instructions_sysvar: solana_instructions_sysvar::ID,
-            system_program: system_program::ID,
-        }
-        .to_account_metas(None),
-    );
+    let program = program_instruction(&action, wallet_id);
 
     let blockhash = Hash::new_from_array(BLOCKHASH);
     let message =
@@ -363,16 +355,170 @@ fn transaction_vector(key: &EnclaveKey) -> TransactionVector {
         relayer: relayer.to_string(),
         relayer_fee: RELAYER_FEE,
         blockhash: blockhash.to_string(),
-        program_instruction: ProgramInstructionVector {
-            program_id: program.program_id.to_string(),
-            accounts: program.accounts.iter().map(Into::into).collect(),
-            discriminator: program.data[..8].to_vec().into(),
-            data: program.data.into(),
-        },
+        program_instruction: (&program).into(),
         message: bincode::serialize(&message)
             .expect("bincode into a Vec")
             .into(),
         transaction: BASE64.encode(bincode::serialize(&unsigned).expect("bincode into a Vec")),
+    }
+}
+
+// --- instructions.json ----------------------------------------------------
+
+/// The program instruction of every case of `actions.json`, under the same
+/// header, plus `confirm_rotation`, which no enclave signs. Same relayer and
+/// relayer fee as `transaction.json`.
+#[derive(Serialize)]
+struct InstructionsVector {
+    relayer: String,
+    relayer_fee: u64,
+    instructions: Vec<NamedInstructionVector>,
+}
+
+#[derive(Serialize)]
+struct NamedInstructionVector {
+    name: &'static str,
+    program_instruction: ProgramInstructionVector,
+}
+
+fn instructions_vector(key: &EnclaveKey) -> InstructionsVector {
+    let wallet_id = key.wallet_id();
+    let mut instructions: Vec<NamedInstructionVector> = cases()
+        .into_iter()
+        .map(|(name, action)| NamedInstructionVector {
+            name,
+            program_instruction: (&program_instruction(&action, wallet_id)).into(),
+        })
+        .collect();
+    instructions.push(NamedInstructionVector {
+        name: "confirm_rotation",
+        program_instruction: (&confirm_rotation_instruction(wallet_id)).into(),
+    });
+    InstructionsVector {
+        relayer: Pubkey::new_from_array(RELAYER).to_string(),
+        relayer_fee: RELAYER_FEE,
+        instructions,
+    }
+}
+
+/// The instruction that executes `action`, signed under the shared header,
+/// encoded by Anchor itself.
+fn program_instruction(action: &Action, wallet_id: [u8; 32]) -> Instruction {
+    let program_id = enclavekit::id();
+    let wallet = Pubkey::find_program_address(&[WALLET_SEED, &wallet_id], &program_id).0;
+    let vault = Pubkey::find_program_address(&[VAULT_SEED, &wallet_id], &program_id).0;
+    let relayer = Pubkey::new_from_array(RELAYER);
+    let instructions_sysvar = solana_instructions_sysvar::ID;
+    let system_program = system_program::ID;
+
+    let (data, accounts) = match action {
+        Action::TransferSol { to, lamports } => (
+            enclavekit::instruction::TransferSol {
+                wallet_id,
+                nonce: NONCE,
+                expires_at: EXPIRES_AT,
+                max_relayer_fee: MAX_RELAYER_FEE,
+                lamports: *lamports,
+                relayer_fee: RELAYER_FEE,
+            }
+            .data(),
+            enclavekit::accounts::TransferSol {
+                wallet,
+                vault,
+                to: Pubkey::new_from_array(*to),
+                relayer,
+                instructions_sysvar,
+                system_program,
+            }
+            .to_account_metas(None),
+        ),
+        Action::ProposeRotation { new_key } => (
+            enclavekit::instruction::ProposeRotation {
+                wallet_id,
+                nonce: NONCE,
+                expires_at: EXPIRES_AT,
+                max_relayer_fee: MAX_RELAYER_FEE,
+                new_key: *new_key,
+                relayer_fee: RELAYER_FEE,
+            }
+            .data(),
+            enclavekit::accounts::ProposeRotation {
+                wallet,
+                vault,
+                relayer,
+                instructions_sysvar,
+                system_program,
+            }
+            .to_account_metas(None),
+        ),
+        Action::CancelRotation => (
+            enclavekit::instruction::CancelRotation {
+                wallet_id,
+                nonce: NONCE,
+                expires_at: EXPIRES_AT,
+                max_relayer_fee: MAX_RELAYER_FEE,
+                relayer_fee: RELAYER_FEE,
+            }
+            .data(),
+            enclavekit::accounts::CancelRotation {
+                wallet,
+                vault,
+                relayer,
+                instructions_sysvar,
+                system_program,
+            }
+            .to_account_metas(None),
+        ),
+        Action::SetGuardians { guardians } => (
+            enclavekit::instruction::SetGuardians {
+                wallet_id,
+                nonce: NONCE,
+                expires_at: EXPIRES_AT,
+                max_relayer_fee: MAX_RELAYER_FEE,
+                guardians: guardians.each_ref().map(program_guardian),
+                relayer_fee: RELAYER_FEE,
+            }
+            .data(),
+            enclavekit::accounts::SetGuardians {
+                wallet,
+                vault,
+                relayer,
+                instructions_sysvar,
+                system_program,
+            }
+            .to_account_metas(None),
+        ),
+        other => todo!("program instruction of {other:?}"),
+    };
+    Instruction {
+        program_id,
+        accounts,
+        data,
+    }
+}
+
+/// Permissionless: only the wallet's state, no precompile, no relayer account.
+fn confirm_rotation_instruction(wallet_id: [u8; 32]) -> Instruction {
+    let program_id = enclavekit::id();
+    Instruction::new_with_bytes(
+        program_id,
+        &enclavekit::instruction::ConfirmRotation {
+            _wallet_id: wallet_id,
+        }
+        .data(),
+        enclavekit::accounts::ConfirmRotation {
+            wallet: Pubkey::find_program_address(&[WALLET_SEED, &wallet_id], &program_id).0,
+        }
+        .to_account_metas(None),
+    )
+}
+
+/// The program's own `Guardian`, the one its instruction arguments take.
+fn program_guardian(guardian: &Guardian) -> enclavekit::Guardian {
+    match guardian {
+        Guardian::None => enclavekit::Guardian::None,
+        Guardian::P256(key) => enclavekit::Guardian::P256(*key),
+        Guardian::WebAuthn(key) => enclavekit::Guardian::WebAuthn(*key),
     }
 }
 

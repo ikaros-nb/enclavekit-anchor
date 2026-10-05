@@ -50,6 +50,7 @@ Tests read the rotation constants from the crate they are compiled with, so alwa
 | `actions.json` | For each implemented `Action`: fields, borsh, full preimage, low-S signature and the complete `secp256r1` instruction data. |
 | `high_s.json` | One signature in high-S and low-S form. |
 | `transaction.json` | The `transfer_sol` case wrapped in the unsigned transaction handed to Kora: program instruction, message bytes and base64. |
+| `instructions.json` | The program instruction of every case of `actions.json` (accounts, discriminator, data), plus `confirm_rotation`, which no enclave signs. |
 
 ```bash
 cargo run -p gen-vectors      # regenerate after any change to the encoding
