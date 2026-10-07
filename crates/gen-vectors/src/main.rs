@@ -172,6 +172,8 @@ fn cases() -> Vec<(&'static str, Action)> {
                 ],
             },
         ),
+        ("sweep_vault", Action::SweepVault { to: TO }),
+        ("close_wallet", Action::CloseWallet { to: TO }),
     ]
 }
 
@@ -187,6 +189,9 @@ fn fields(action: &Action) -> Value {
         Action::CancelRotation => json!({}),
         Action::SetGuardians { guardians } => json!({
             "guardians": guardians.iter().map(guardian).collect::<Vec<Value>>(),
+        }),
+        Action::SweepVault { to } | Action::CloseWallet { to } => json!({
+            "to": hex(to),
         }),
         other => todo!("fields of {other:?}"),
     }
@@ -482,6 +487,44 @@ fn program_instruction(action: &Action, wallet_id: [u8; 32]) -> Instruction {
             enclavekit::accounts::SetGuardians {
                 wallet,
                 vault,
+                relayer,
+                instructions_sysvar,
+                system_program,
+            }
+            .to_account_metas(None),
+        ),
+        Action::SweepVault { to } => (
+            enclavekit::instruction::SweepVault {
+                wallet_id,
+                nonce: NONCE,
+                expires_at: EXPIRES_AT,
+                max_relayer_fee: MAX_RELAYER_FEE,
+                relayer_fee: RELAYER_FEE,
+            }
+            .data(),
+            enclavekit::accounts::SweepVault {
+                wallet,
+                vault,
+                to: Pubkey::new_from_array(*to),
+                relayer,
+                instructions_sysvar,
+                system_program,
+            }
+            .to_account_metas(None),
+        ),
+        Action::CloseWallet { to } => (
+            enclavekit::instruction::CloseWallet {
+                wallet_id,
+                nonce: NONCE,
+                expires_at: EXPIRES_AT,
+                max_relayer_fee: MAX_RELAYER_FEE,
+                relayer_fee: RELAYER_FEE,
+            }
+            .data(),
+            enclavekit::accounts::CloseWallet {
+                wallet,
+                vault,
+                to: Pubkey::new_from_array(*to),
                 relayer,
                 instructions_sysvar,
                 system_program,

@@ -19,12 +19,16 @@ The [Program IDL tab](https://explorer.solana.com/address/dG4h3aizVEW1bKjzkGsfk6
 | Instruction | Signer | Effect |
 |---|---|---|
 | `transfer_sol` | active key | Sends lamports from the vault. Creates the wallet on first use. |
+| `sweep_vault` | active key | Sends the whole vault, read at execution, and leaves it at 0. The wallet stays, guardians included. Creates the wallet on first use. |
 | `set_guardians` | active key | Replaces the 3 guardian slots. Clears any pending rotation. |
 | `propose_rotation` | active key or guardian | Active key: swaps the key immediately. Guardian: opens a timelocked proposal. |
 | `cancel_rotation` | active key | Drops the pending proposal. |
 | `confirm_rotation` | anyone | Applies the proposal once the delay has passed and before the window closes. |
+| `close_wallet` | active key | Sends the whole vault, then closes the wallet's state. Its rent goes back to the relayer, which advanced it. |
 
 Every signed instruction carries `wallet_id`, `nonce`, `expires_at` and `max_relayer_fee`, and is preceded in the transaction by the `secp256r1` precompile instruction.
+
+The relayer's refund comes from the vault and never exceeds `max_relayer_fee`. `transfer_sol` refuses an amount the vault cannot cover together with `max_relayer_fee` and its own rent-exempt minimum: only `sweep_vault` and `close_wallet` empty it. `close_wallet` also caps the refund at the vault's balance, so an emptied wallet can still close.
 
 ## Build, test, deploy
 

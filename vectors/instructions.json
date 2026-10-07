@@ -148,6 +148,86 @@
       }
     },
     {
+      "name": "sweep_vault",
+      "program_instruction": {
+        "program_id": "dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY",
+        "accounts": [
+          {
+            "pubkey": "EKyNGE7ecVLS8GYLf13LypzugwLbRQuRVNvNQdu9jQxF",
+            "is_signer": false,
+            "is_writable": true
+          },
+          {
+            "pubkey": "hYEjxsHxt6UeiMra3eqTxzuWKTWMbC7Q4qjZLV5NpZK",
+            "is_signer": false,
+            "is_writable": true
+          },
+          {
+            "pubkey": "29d2S7vB453rNYFdR5Ycwt7y9haRT5fwVwL9zTmBhfV2",
+            "is_signer": false,
+            "is_writable": true
+          },
+          {
+            "pubkey": "93MB2qRDNVLxbmmPuYpLdAqn3u2x9ZhaVZK5wELHueP8",
+            "is_signer": true,
+            "is_writable": true
+          },
+          {
+            "pubkey": "Sysvar1nstructions1111111111111111111111111",
+            "is_signer": false,
+            "is_writable": false
+          },
+          {
+            "pubkey": "11111111111111111111111111111111",
+            "is_signer": false,
+            "is_writable": false
+          }
+        ],
+        "discriminator": "895c09018cedd68c",
+        "data": "895c09018cedd68cd284f0626fd0836ce4b1731793fa69059e02668600519365b33c55bd94512735070000000000000000f153650000000010270000000000001027000000000000"
+      }
+    },
+    {
+      "name": "close_wallet",
+      "program_instruction": {
+        "program_id": "dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY",
+        "accounts": [
+          {
+            "pubkey": "EKyNGE7ecVLS8GYLf13LypzugwLbRQuRVNvNQdu9jQxF",
+            "is_signer": false,
+            "is_writable": true
+          },
+          {
+            "pubkey": "hYEjxsHxt6UeiMra3eqTxzuWKTWMbC7Q4qjZLV5NpZK",
+            "is_signer": false,
+            "is_writable": true
+          },
+          {
+            "pubkey": "29d2S7vB453rNYFdR5Ycwt7y9haRT5fwVwL9zTmBhfV2",
+            "is_signer": false,
+            "is_writable": true
+          },
+          {
+            "pubkey": "93MB2qRDNVLxbmmPuYpLdAqn3u2x9ZhaVZK5wELHueP8",
+            "is_signer": true,
+            "is_writable": true
+          },
+          {
+            "pubkey": "Sysvar1nstructions1111111111111111111111111",
+            "is_signer": false,
+            "is_writable": false
+          },
+          {
+            "pubkey": "11111111111111111111111111111111",
+            "is_signer": false,
+            "is_writable": false
+          }
+        ],
+        "discriminator": "23d4eae0f4d01fcc",
+        "data": "23d4eae0f4d01fccd284f0626fd0836ce4b1731793fa69059e02668600519365b33c55bd94512735070000000000000000f153650000000010270000000000001027000000000000"
+      }
+    },
+    {
       "name": "confirm_rotation",
       "program_instruction": {
         "program_id": "dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY",
