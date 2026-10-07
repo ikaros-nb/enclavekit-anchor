@@ -5,7 +5,10 @@ use common::{
     assert_program_error, vault_pda, wallet_pda, EnclaveKey, EnclaveRequest, Env,
     SetGuardiansRequest, SweepVaultRequest,
 };
-use enclavekit::{error::EnclaveKitError, state::Guardian};
+use enclavekit::{
+    error::EnclaveKitError,
+    state::{Guardian, GuardianSlot},
+};
 use litesvm::types::{FailedTransactionMetadata, TransactionMetadata};
 use solana_signer::Signer;
 
@@ -132,7 +135,7 @@ fn keeps_the_wallet_and_its_guardians() {
     assert_eq!(wallet.active_key, scenario.key.compressed_pubkey());
     assert_eq!(
         wallet.guardians[0],
-        Guardian::P256(guardian.compressed_pubkey())
+        GuardianSlot::from(Guardian::P256(guardian.compressed_pubkey()))
     );
 }
 

@@ -108,7 +108,7 @@ fn first_action_creates_the_wallet_pays_and_refunds() {
     assert_eq!(wallet.active_key, scenario.key.compressed_pubkey());
     assert_eq!(wallet.nonce, 1);
     assert!(!wallet.attested);
-    assert!(wallet.rotation.is_none());
+    assert!(wallet.rotation.get().is_none());
 
     assert_eq!(scenario.env.balance(&request.to), LAMPORTS);
     assert_eq!(

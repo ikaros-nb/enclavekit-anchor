@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{error::EnclaveKitError, events::KeyRotated, SmartWallet, WALLET_SEED};
+use crate::{error::EnclaveKitError, events::KeyRotated, RotationSlot, SmartWallet, WALLET_SEED};
 
 /// Permissionless: no precompile, no signed preimage, no nonce, no refund.
 #[event_cpi]
@@ -20,7 +20,7 @@ impl<'info> ConfirmRotation<'info> {
         let pending = self
             .wallet
             .rotation
-            .as_ref()
+            .get()
             .ok_or(EnclaveKitError::NoPendingRotation)?;
 
         let now = Clock::get()?.unix_timestamp;
@@ -30,7 +30,7 @@ impl<'info> ConfirmRotation<'info> {
         let new_key = pending.new_key;
         self.wallet.active_key = new_key;
         self.wallet.attested = false;
-        self.wallet.rotation = None;
+        self.wallet.rotation = RotationSlot::EMPTY;
 
         Ok(KeyRotated {
             wallet_id: self.wallet.wallet_id,

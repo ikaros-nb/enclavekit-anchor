@@ -5,8 +5,8 @@ use anchor_lang::{
 use solana_sha256_hasher::hash;
 
 use crate::{
-    error::EnclaveKitError, precompile::load_secp256r1_payload, Guardian, SmartWallet,
-    COMPRESSED_PUBKEY_LEN, MAX_GUARDIANS, VAULT_SEED,
+    error::EnclaveKitError, precompile::load_secp256r1_payload, GuardianSlot, RotationSlot,
+    SmartWallet, COMPRESSED_PUBKEY_LEN, MAX_GUARDIANS, VAULT_SEED,
 };
 
 use enclavekit_encoding::{action::Action, preimage::Preimage};
@@ -39,8 +39,8 @@ pub fn verify_enclave_authorization(
             active_key: payload.pubkey,
             nonce: 0,
             attested: false,
-            rotation: None,
-            guardians: [Guardian::None; MAX_GUARDIANS],
+            guardians: [GuardianSlot::EMPTY; MAX_GUARDIANS],
+            rotation: RotationSlot::EMPTY,
             state_bump,
             vault_bump,
         };

@@ -5,7 +5,10 @@ use common::{
     assert_program_error, vault_pda, wallet_pda, EnclaveKey, EnclaveRequest, Env,
     SetGuardiansRequest,
 };
-use enclavekit::{error::EnclaveKitError, state::Guardian};
+use enclavekit::{
+    error::EnclaveKitError,
+    state::{Guardian, GuardianSlot},
+};
 use litesvm::types::{FailedTransactionMetadata, TransactionMetadata};
 use solana_signer::Signer;
 
@@ -85,12 +88,12 @@ fn first_action_creates_the_wallet_and_stores_the_guardians() {
         .expect("first action creates the state PDA");
     assert_eq!(wallet.active_key, scenario.key.compressed_pubkey());
     assert_eq!(wallet.nonce, 1);
-    assert_eq!(wallet.guardians, request.guardians);
+    assert_eq!(wallet.guardians, request.guardians.map(GuardianSlot::from));
     assert_eq!(
         wallet.guardians[0],
-        Guardian::P256(scenario.guardian.compressed_pubkey())
+        GuardianSlot::from(Guardian::P256(scenario.guardian.compressed_pubkey()))
     );
-    assert!(wallet.rotation.is_none());
+    assert!(wallet.rotation.get().is_none());
 
     // Only the refund leaves the vault.
     assert_eq!(
@@ -124,7 +127,7 @@ fn second_call_replaces_the_whole_list() {
 
     let wallet = scenario.env.wallet(&second.wallet_id).unwrap();
     assert_eq!(wallet.nonce, 2);
-    assert_eq!(wallet.guardians, second.guardians);
+    assert_eq!(wallet.guardians, second.guardians.map(GuardianSlot::from));
 }
 
 #[test]

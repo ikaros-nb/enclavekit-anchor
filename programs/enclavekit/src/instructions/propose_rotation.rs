@@ -4,7 +4,7 @@ use crate::{
     authorization::{refund_relayer, verify_enclave_authorization, Authorization},
     error::EnclaveKitError,
     events::{KeyRotated, RotationProposed},
-    Guardian, PendingRotation, SmartWallet, COMPRESSED_PUBKEY_LEN, VAULT_SEED, WALLET_SEED,
+    PendingRotation, RotationSlot, SmartWallet, COMPRESSED_PUBKEY_LEN, VAULT_SEED, WALLET_SEED,
 };
 
 use enclavekit_encoding::action::Action;
@@ -75,7 +75,7 @@ impl<'info> ProposeRotation<'info> {
             // The owner still holds the key: no timelock, the swap is immediate.
             self.wallet.active_key = new_key;
             self.wallet.attested = false;
-            self.wallet.rotation = None;
+            self.wallet.rotation = RotationSlot::EMPTY;
             Proposal::Rotated(KeyRotated {
                 wallet_id,
                 new_key,
@@ -84,9 +84,7 @@ impl<'info> ProposeRotation<'info> {
         } else {
             let slot = self
                 .wallet
-                .guardians
-                .iter()
-                .position(|guardian| *guardian == Guardian::P256(signer))
+                .p256_guardian(&signer)
                 .ok_or(EnclaveKitError::NotAGuardian)?;
 
             let now = Clock::get()?.unix_timestamp;
@@ -94,7 +92,7 @@ impl<'info> ProposeRotation<'info> {
             // A guardian may replace its own proposal, never another's, unless
             // that one ran out of its window: an abandoned proposal must not
             // lock the other guardians out while the owner is gone.
-            if let Some(pending) = &self.wallet.rotation {
+            if let Some(pending) = self.wallet.rotation.get() {
                 require!(
                     pending.proposed_by as usize == slot || pending.is_expired(now),
                     EnclaveKitError::RotationSlotTaken
@@ -107,7 +105,7 @@ impl<'info> ProposeRotation<'info> {
                 proposed_by: slot as u8,
             };
             let opens_at = pending.opens_at();
-            self.wallet.rotation = Some(pending);
+            self.wallet.rotation = RotationSlot::new(pending);
             Proposal::Pending(RotationProposed {
                 wallet_id,
                 new_key,

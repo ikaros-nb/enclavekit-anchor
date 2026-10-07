@@ -4,7 +4,11 @@ use common::{
     assert_program_error_at, confirm_rotation_instruction, vault_pda, EnclaveKey, EnclaveRequest,
     Env, ProposeRotationRequest, SetGuardiansRequest,
 };
-use enclavekit::{error::EnclaveKitError, state::Guardian, ROTATION_DELAY, ROTATION_WINDOW};
+use enclavekit::{
+    error::EnclaveKitError,
+    state::{Guardian, GuardianSlot},
+    ROTATION_DELAY, ROTATION_WINDOW,
+};
 use litesvm::types::{FailedTransactionMetadata, TransactionMetadata};
 use solana_signer::Signer;
 
@@ -119,13 +123,13 @@ fn confirms_at_the_first_second_of_the_window() {
     let wallet = scenario.env.wallet(&scenario.wallet_id).unwrap();
     assert_eq!(wallet.active_key, scenario.new_key.compressed_pubkey());
     assert!(!wallet.attested);
-    assert!(wallet.rotation.is_none());
+    assert!(wallet.rotation.get().is_none());
     // Nobody signed a preimage: the counter does not move.
     assert_eq!(wallet.nonce, nonce_before);
     // The guardian list is untouched.
     assert_eq!(
         wallet.guardians[0],
-        Guardian::P256(scenario.guardian.compressed_pubkey())
+        GuardianSlot::from(Guardian::P256(scenario.guardian.compressed_pubkey()))
     );
 }
 

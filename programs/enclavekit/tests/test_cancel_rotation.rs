@@ -7,7 +7,10 @@ use common::{
     EnclaveRequest, Env, ProposeRotationRequest, SetGuardiansRequest, TransferSolRequest,
     PROGRAM_INDEX,
 };
-use enclavekit::{error::EnclaveKitError, state::Guardian};
+use enclavekit::{
+    error::EnclaveKitError,
+    state::{Guardian, GuardianSlot},
+};
 use litesvm::types::{FailedTransactionMetadata, TransactionMetadata};
 use solana_signer::Signer;
 
@@ -125,13 +128,13 @@ fn active_key_cancels_a_guardians_proposal() {
         .unwrap_or_else(|failed| panic!("{:?}\n{:#?}", failed.err, failed.meta.logs));
 
     let wallet = scenario.env.wallet(&request.wallet_id).unwrap();
-    assert!(wallet.rotation.is_none());
+    assert!(wallet.rotation.get().is_none());
     assert_eq!(wallet.nonce, request.nonce + 1);
     // Cancelling changes nothing else: same key, same guardians.
     assert_eq!(wallet.active_key, scenario.key.compressed_pubkey());
     assert_eq!(
         wallet.guardians[0],
-        Guardian::P256(guardian.compressed_pubkey())
+        GuardianSlot::from(Guardian::P256(guardian.compressed_pubkey()))
     );
     // Only the refund leaves the vault; the state PDA already existed.
     assert_eq!(

@@ -6,7 +6,7 @@ use crate::{
     },
     error::EnclaveKitError,
     events::GuardiansSet,
-    Guardian, SmartWallet, MAX_GUARDIANS, VAULT_SEED, WALLET_SEED,
+    Guardian, GuardianSlot, RotationSlot, SmartWallet, MAX_GUARDIANS, VAULT_SEED, WALLET_SEED,
 };
 
 use enclavekit_encoding::action::Action;
@@ -70,9 +70,10 @@ impl<'info> SetGuardians<'info> {
             EnclaveKitError::WebAuthnGuardianUnsupported
         );
 
-        // The whole list is replaced.
-        self.wallet.guardians = guardians;
-        self.wallet.rotation = None;
+        // The whole list is replaced: a removed guardian's slot goes back to
+        // zeros, nothing left for a device to find.
+        self.wallet.guardians = guardians.map(GuardianSlot::from);
+        self.wallet.rotation = RotationSlot::EMPTY;
 
         refund_relayer(
             &self.wallet,

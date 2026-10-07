@@ -5,7 +5,11 @@ use common::{
     assert_program_error, vault_pda, EnclaveKey, EnclaveRequest, Env, ProposeRotationRequest,
     SetGuardiansRequest,
 };
-use enclavekit::{error::EnclaveKitError, state::Guardian, ROTATION_DELAY, ROTATION_WINDOW};
+use enclavekit::{
+    error::EnclaveKitError,
+    state::{Guardian, GuardianSlot},
+    ROTATION_DELAY, ROTATION_WINDOW,
+};
 use litesvm::types::{FailedTransactionMetadata, TransactionMetadata};
 use solana_signer::Signer;
 
@@ -110,12 +114,12 @@ fn active_key_rotates_immediately() {
     let wallet = scenario.env.wallet(&request.wallet_id).unwrap();
     assert_eq!(wallet.active_key, scenario.new_key.compressed_pubkey());
     assert!(!wallet.attested);
-    assert!(wallet.rotation.is_none());
+    assert!(wallet.rotation.get().is_none());
     assert_eq!(wallet.nonce, 2);
     // Guardians survive a rotation.
     assert_eq!(
         wallet.guardians[0],
-        Guardian::P256(scenario.guardians[0].compressed_pubkey())
+        GuardianSlot::from(Guardian::P256(scenario.guardians[0].compressed_pubkey()))
     );
 }
 
@@ -156,7 +160,10 @@ fn guardian_writes_a_pending_rotation() {
     // Nothing changes yet, the timelock runs.
     assert_eq!(wallet.active_key, key.compressed_pubkey());
     assert_eq!(wallet.nonce, 2);
-    let pending = wallet.rotation.expect("the guardian's proposal is stored");
+    let pending = wallet
+        .rotation
+        .get()
+        .expect("the guardian's proposal is stored");
     assert_eq!(pending.new_key, request.new_key);
     assert_eq!(pending.proposed_by, 0);
     assert_eq!(pending.proposed_at, scenario.env.unix_timestamp());
@@ -177,12 +184,8 @@ fn guardian_replaces_its_own_proposal() {
     };
     scenario.send_as(&guardian, &second);
 
-    let pending = scenario
-        .env
-        .wallet(&second.wallet_id)
-        .unwrap()
-        .rotation
-        .unwrap();
+    let wallet = scenario.env.wallet(&second.wallet_id).unwrap();
+    let pending = wallet.rotation.get().unwrap();
     assert_eq!(pending.new_key, second.new_key);
     assert_eq!(pending.proposed_by, 1);
 }
@@ -216,12 +219,8 @@ fn guardian_replaces_another_guardians_expired_proposal() {
     };
     scenario.send_as(&scenario.guardians[1].clone(), &second);
 
-    let pending = scenario
-        .env
-        .wallet(&second.wallet_id)
-        .unwrap()
-        .rotation
-        .unwrap();
+    let wallet = scenario.env.wallet(&second.wallet_id).unwrap();
+    let pending = wallet.rotation.get().unwrap();
     assert_eq!(pending.proposed_by, 1);
     assert_eq!(pending.proposed_at, scenario.env.unix_timestamp());
 }
@@ -236,7 +235,7 @@ fn active_key_clears_a_guardians_proposal() {
     scenario.send_as(&scenario.key.clone(), &second);
 
     let wallet = scenario.env.wallet(&second.wallet_id).unwrap();
-    assert!(wallet.rotation.is_none());
+    assert!(wallet.rotation.get().is_none());
     assert_eq!(wallet.active_key, second.new_key);
 }
 

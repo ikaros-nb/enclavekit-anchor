@@ -8,7 +8,11 @@ use common::{
     CancelRotationRequest, EnclaveKey, EnclaveRequest, Env, ProposeRotationRequest,
     SetGuardiansRequest, TransferSolRequest,
 };
-use enclavekit::{error::EnclaveKitError, state::Guardian, ROTATION_DELAY};
+use enclavekit::{
+    error::EnclaveKitError,
+    state::{Guardian, GuardianSlot},
+    ROTATION_DELAY,
+};
 use solana_signer::Signer;
 
 const VAULT_FUNDING: u64 = 1_000_000_000;
@@ -118,9 +122,11 @@ fn the_guardian_takes_over_a_lost_iphone() {
     // A false alarm: the iPad proposes a new device, the phone turns up and
     // its owner cancels before the timelock elapses.
     story.act(&ipad, &story.propose(&iphone_c));
-    assert!(story.env.wallet(&wallet_id).unwrap().rotation.is_some());
+    let wallet = story.env.wallet(&wallet_id).unwrap();
+    assert!(wallet.rotation.get().is_some());
     story.act(&iphone_a, &story.cancel());
-    assert!(story.env.wallet(&wallet_id).unwrap().rotation.is_none());
+    let wallet = story.env.wallet(&wallet_id).unwrap();
+    assert!(wallet.rotation.get().is_none());
 
     // The phone is really lost this time. The iPad proposes itself.
     story.act(&ipad, &story.propose(&ipad));
@@ -152,10 +158,10 @@ fn the_guardian_takes_over_a_lost_iphone() {
     // touch the list, the app cleans it up with set_guardians.
     assert_eq!(
         wallet.guardians[0],
-        Guardian::P256(ipad.compressed_pubkey())
+        GuardianSlot::from(Guardian::P256(ipad.compressed_pubkey()))
     );
     assert!(!wallet.attested);
-    assert!(wallet.rotation.is_none());
+    assert!(wallet.rotation.get().is_none());
     assert_eq!(
         wallet.nonce, story.nonce,
         "confirm does not consume a nonce"
