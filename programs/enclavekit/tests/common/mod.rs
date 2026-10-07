@@ -4,12 +4,16 @@
 mod requests;
 pub use requests::*;
 
+use anchor_lang::event::EVENT_IX_TAG_LE;
 use anchor_lang::prelude::{Clock, Pubkey};
 use anchor_lang::solana_program::instruction::error::InstructionError;
 use anchor_lang::solana_program::instruction::Instruction;
-use anchor_lang::AccountDeserialize;
+use anchor_lang::{AccountDeserialize, AnchorDeserialize, Discriminator};
 use enclavekit::{error::EnclaveKitError, state::SmartWallet};
-use litesvm::{types::FailedTransactionMetadata, LiteSVM};
+use litesvm::{
+    types::{FailedTransactionMetadata, TransactionMetadata},
+    LiteSVM,
+};
 use solana_keypair::Keypair;
 use solana_message::{Message, VersionedMessage};
 use solana_signer::Signer;
@@ -108,4 +112,22 @@ pub fn assert_program_error_at(
         "expected {expected:?}\n{:#?}",
         failed.meta.logs
     );
+}
+
+/// What the program emitted with `emit_cpi!`, in order: the data of each
+/// self-CPI, Anchor's event tag stripped. Only the program can sign as its
+/// event authority: no other inner instruction carries the tag.
+pub fn emitted(meta: &TransactionMetadata) -> Vec<Vec<u8>> {
+    meta.inner_instructions
+        .iter()
+        .flatten()
+        .filter_map(|inner| inner.instruction.data.strip_prefix(EVENT_IX_TAG_LE))
+        .map(<[u8]>::to_vec)
+        .collect()
+}
+
+/// `bytes` as event `E`, `None` when it is another event.
+pub fn decode<E: Discriminator + AnchorDeserialize>(bytes: &[u8]) -> Option<E> {
+    let data = bytes.strip_prefix(E::DISCRIMINATOR)?;
+    Some(E::try_from_slice(data).expect("event data decodes in full"))
 }

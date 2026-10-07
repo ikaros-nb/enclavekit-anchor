@@ -22,7 +22,7 @@ devnet = []
 
 
 [dependencies]
-anchor-lang = { version = "1.2.0", features = ["init-if-needed"] }
+anchor-lang = { version = "1.2.0", features = ["init-if-needed", "event-cpi"] }
 enclavekit-encoding = { path = "../../crates/enclavekit-encoding", default-features = false }
 solana-instructions-sysvar = "3.0.1"
 solana-sha256-hasher = "3.1.0"

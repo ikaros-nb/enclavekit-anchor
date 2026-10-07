@@ -21,6 +21,14 @@ pub struct SmartWallet {
     pub vault_bump: u8,
 }
 
+impl SmartWallet {
+    /// The state `init_if_needed` just made, all zeros: the first action
+    /// fills it.
+    pub fn is_new(&self) -> bool {
+        self.active_key == [0u8; COMPRESSED_PUBKEY_LEN]
+    }
+}
+
 #[derive(AnchorSerialize, AnchorDeserialize, InitSpace, Clone)]
 pub struct PendingRotation {
     pub new_key: [u8; COMPRESSED_PUBKEY_LEN],

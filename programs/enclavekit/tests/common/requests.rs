@@ -66,6 +66,12 @@ pub fn vault_pda(wallet_id: &[u8; 32]) -> Pubkey {
     Pubkey::find_program_address(&[VAULT_SEED, wallet_id], &enclavekit::id()).0
 }
 
+/// Signs the self-CPI that carries each event: every instruction takes it,
+/// then the program itself.
+pub fn event_authority() -> Pubkey {
+    Pubkey::find_program_address(&[b"__event_authority"], &enclavekit::id()).0
+}
+
 /// One enclave-authorised call: what the enclave signs and what the relayer
 /// sends. Every instruction that goes through `verify_enclave_authorization`
 /// implements it; `preimage` and `sign` come for free.
@@ -150,6 +156,8 @@ impl EnclaveRequest for TransferSolRequest {
                 relayer: *relayer,
                 instructions_sysvar: solana_instructions_sysvar::ID,
                 system_program: system_program::ID,
+                event_authority: event_authority(),
+                program: enclavekit::id(),
             }
             .to_account_metas(None),
         )
@@ -202,6 +210,8 @@ impl EnclaveRequest for SetGuardiansRequest {
                 relayer: *relayer,
                 instructions_sysvar: solana_instructions_sysvar::ID,
                 system_program: system_program::ID,
+                event_authority: event_authority(),
+                program: enclavekit::id(),
             }
             .to_account_metas(None),
         )
@@ -250,6 +260,8 @@ impl EnclaveRequest for CancelRotationRequest {
                 relayer: *relayer,
                 instructions_sysvar: solana_instructions_sysvar::ID,
                 system_program: system_program::ID,
+                event_authority: event_authority(),
+                program: enclavekit::id(),
             }
             .to_account_metas(None),
         )
@@ -302,6 +314,8 @@ impl EnclaveRequest for ProposeRotationRequest {
                 relayer: *relayer,
                 instructions_sysvar: solana_instructions_sysvar::ID,
                 system_program: system_program::ID,
+                event_authority: event_authority(),
+                program: enclavekit::id(),
             }
             .to_account_metas(None),
         )
@@ -354,6 +368,8 @@ impl EnclaveRequest for SweepVaultRequest {
                 relayer: *relayer,
                 instructions_sysvar: solana_instructions_sysvar::ID,
                 system_program: system_program::ID,
+                event_authority: event_authority(),
+                program: enclavekit::id(),
             }
             .to_account_metas(None),
         )
@@ -406,6 +422,8 @@ impl EnclaveRequest for CloseWalletRequest {
                 relayer: *relayer,
                 instructions_sysvar: solana_instructions_sysvar::ID,
                 system_program: system_program::ID,
+                event_authority: event_authority(),
+                program: enclavekit::id(),
             }
             .to_account_metas(None),
         )
@@ -422,6 +440,8 @@ pub fn confirm_rotation_instruction(wallet_id: &[u8; 32]) -> Instruction {
         .data(),
         enclavekit::accounts::ConfirmRotation {
             wallet: wallet_pda(wallet_id),
+            event_authority: event_authority(),
+            program: enclavekit::id(),
         }
         .to_account_metas(None),
     )

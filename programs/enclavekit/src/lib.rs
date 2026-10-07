@@ -1,6 +1,7 @@
 pub mod authorization;
 pub mod constants;
 pub mod error;
+pub mod events;
 pub mod instructions;
 pub mod precompile;
 pub mod state;
@@ -9,11 +10,14 @@ use anchor_lang::prelude::*;
 
 use authorization::Authorization;
 pub use constants::*;
+use events::WalletCreated;
 pub use instructions::*;
 pub use state::*;
 
 declare_id!("dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY");
 
+// `emit_cpi!` needs `ctx` in scope: each method returns its event, the
+// handler emits it. A wallet's first action emits `WalletCreated` before.
 #[program]
 pub mod enclavekit {
     use super::*;
@@ -33,8 +37,18 @@ pub mod enclavekit {
             expires_at,
             max_relayer_fee,
         };
-        ctx.accounts
-            .transfer(authorization, lamports, relayer_fee, &ctx.bumps)
+        let created = ctx.accounts.wallet.is_new();
+        let event = ctx
+            .accounts
+            .transfer(authorization, lamports, relayer_fee, &ctx.bumps)?;
+        if created {
+            emit_cpi!(WalletCreated {
+                wallet_id,
+                key: ctx.accounts.wallet.active_key,
+            });
+        }
+        emit_cpi!(event);
+        Ok(())
     }
 
     pub fn set_guardians(
@@ -52,8 +66,18 @@ pub mod enclavekit {
             expires_at,
             max_relayer_fee,
         };
-        ctx.accounts
-            .set_guardians(authorization, guardians, relayer_fee, &ctx.bumps)
+        let created = ctx.accounts.wallet.is_new();
+        let event =
+            ctx.accounts
+                .set_guardians(authorization, guardians, relayer_fee, &ctx.bumps)?;
+        if created {
+            emit_cpi!(WalletCreated {
+                wallet_id,
+                key: ctx.accounts.wallet.active_key,
+            });
+        }
+        emit_cpi!(event);
+        Ok(())
     }
 
     pub fn cancel_rotation(
@@ -70,7 +94,9 @@ pub mod enclavekit {
             expires_at,
             max_relayer_fee,
         };
-        ctx.accounts.cancel(authorization, relayer_fee)
+        let event = ctx.accounts.cancel(authorization, relayer_fee)?;
+        emit_cpi!(event);
+        Ok(())
     }
 
     pub fn propose_rotation(
@@ -88,11 +114,17 @@ pub mod enclavekit {
             expires_at,
             max_relayer_fee,
         };
-        ctx.accounts.propose(authorization, new_key, relayer_fee)
+        match ctx.accounts.propose(authorization, new_key, relayer_fee)? {
+            Proposal::Rotated(event) => emit_cpi!(event),
+            Proposal::Pending(event) => emit_cpi!(event),
+        }
+        Ok(())
     }
 
     pub fn confirm_rotation(ctx: Context<ConfirmRotation>, _wallet_id: [u8; 32]) -> Result<()> {
-        ctx.accounts.confirm()
+        let event = ctx.accounts.confirm()?;
+        emit_cpi!(event);
+        Ok(())
     }
 
     pub fn sweep_vault(
@@ -109,7 +141,16 @@ pub mod enclavekit {
             expires_at,
             max_relayer_fee,
         };
-        ctx.accounts.sweep(authorization, relayer_fee, &ctx.bumps)
+        let created = ctx.accounts.wallet.is_new();
+        let event = ctx.accounts.sweep(authorization, relayer_fee, &ctx.bumps)?;
+        if created {
+            emit_cpi!(WalletCreated {
+                wallet_id,
+                key: ctx.accounts.wallet.active_key,
+            });
+        }
+        emit_cpi!(event);
+        Ok(())
     }
 
     pub fn close_wallet(
@@ -126,6 +167,8 @@ pub mod enclavekit {
             expires_at,
             max_relayer_fee,
         };
-        ctx.accounts.close(authorization, relayer_fee)
+        let event = ctx.accounts.close(authorization, relayer_fee)?;
+        emit_cpi!(event);
+        Ok(())
     }
 }

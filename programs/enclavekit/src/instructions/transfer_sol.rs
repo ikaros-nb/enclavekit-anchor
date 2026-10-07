@@ -6,11 +6,13 @@ use crate::{
         Authorization,
     },
     error::EnclaveKitError,
+    events::SolTransferred,
     SmartWallet, VAULT_SEED, WALLET_SEED,
 };
 
 use enclavekit_encoding::action::Action;
 
+#[event_cpi]
 #[derive(Accounts)]
 #[instruction(wallet_id: [u8; 32])]
 pub struct TransferSol<'info> {
@@ -52,7 +54,7 @@ impl<'info> TransferSol<'info> {
         lamports: u64,
         relayer_fee: u64,
         bumps: &TransferSolBumps,
-    ) -> Result<()> {
+    ) -> Result<SolTransferred> {
         let action = Action::TransferSol {
             to: self.to.key().to_bytes(),
             lamports,
@@ -87,13 +89,20 @@ impl<'info> TransferSol<'info> {
             &self.system_program,
             lamports,
         )?;
-        refund_relayer(
+        let refund = refund_relayer(
             &self.wallet,
             &self.vault,
             &self.relayer,
             &self.system_program,
             relayer_fee,
             authorization.max_relayer_fee,
-        )
+        )?;
+
+        Ok(SolTransferred {
+            wallet_id: self.wallet.wallet_id,
+            to: self.to.key(),
+            lamports,
+            relayer_fee: refund,
+        })
     }
 }

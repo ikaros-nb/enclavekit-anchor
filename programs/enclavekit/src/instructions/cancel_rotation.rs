@@ -5,11 +5,13 @@ use crate::{
         refund_relayer, require_active_key, verify_enclave_authorization, Authorization,
     },
     error::EnclaveKitError,
+    events::RotationCancelled,
     SmartWallet, VAULT_SEED, WALLET_SEED,
 };
 
 use enclavekit_encoding::action::Action;
 
+#[event_cpi]
 #[derive(Accounts)]
 #[instruction(wallet_id: [u8; 32])]
 pub struct CancelRotation<'info> {
@@ -39,7 +41,11 @@ pub struct CancelRotation<'info> {
 }
 
 impl<'info> CancelRotation<'info> {
-    pub fn cancel(&mut self, authorization: Authorization, relayer_fee: u64) -> Result<()> {
+    pub fn cancel(
+        &mut self,
+        authorization: Authorization,
+        relayer_fee: u64,
+    ) -> Result<RotationCancelled> {
         let action = Action::CancelRotation;
         let (state_bump, vault_bump) = (self.wallet.state_bump, self.wallet.vault_bump);
         let signer = verify_enclave_authorization(
@@ -52,11 +58,11 @@ impl<'info> CancelRotation<'info> {
         )?;
         require_active_key(&self.wallet, &signer)?;
 
-        require!(
-            self.wallet.rotation.is_some(),
-            EnclaveKitError::NoPendingRotation
-        );
-        self.wallet.rotation = None;
+        let cancelled = self
+            .wallet
+            .rotation
+            .take()
+            .ok_or(EnclaveKitError::NoPendingRotation)?;
 
         refund_relayer(
             &self.wallet,
@@ -65,6 +71,11 @@ impl<'info> CancelRotation<'info> {
             &self.system_program,
             relayer_fee,
             authorization.max_relayer_fee,
-        )
+        )?;
+
+        Ok(RotationCancelled {
+            wallet_id: self.wallet.wallet_id,
+            new_key: cancelled.new_key,
+        })
     }
 }

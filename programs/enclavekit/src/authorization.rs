@@ -28,7 +28,7 @@ pub fn verify_enclave_authorization(
 ) -> Result<[u8; COMPRESSED_PUBKEY_LEN]> {
     let payload = load_secp256r1_payload(instructions_sysvar)?;
 
-    if wallet.active_key == [0u8; COMPRESSED_PUBKEY_LEN] {
+    if wallet.is_new() {
         require!(
             hash(&payload.pubkey).to_bytes() == auth.wallet_id,
             EnclaveKitError::WalletIdMismatch
@@ -107,6 +107,7 @@ pub fn transfer_from_vault<'info>(
 }
 
 /// Pays the relayer back from the vault, never more than the enclave signed.
+/// Returns what it paid.
 pub fn refund_relayer<'info>(
     wallet: &SmartWallet,
     vault: &SystemAccount<'info>,
@@ -114,12 +115,14 @@ pub fn refund_relayer<'info>(
     system_program: &Program<'info, System>,
     relayer_fee: u64,
     max_relayer_fee: u64,
-) -> Result<()> {
+) -> Result<u64> {
+    let refund = relayer_fee.min(max_relayer_fee);
     transfer_from_vault(
         wallet,
         vault,
         relayer.to_account_info(),
         system_program,
-        relayer_fee.min(max_relayer_fee),
-    )
+        refund,
+    )?;
+    Ok(refund)
 }

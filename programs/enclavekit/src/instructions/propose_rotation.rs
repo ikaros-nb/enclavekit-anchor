@@ -3,11 +3,21 @@ use anchor_lang::prelude::*;
 use crate::{
     authorization::{refund_relayer, verify_enclave_authorization, Authorization},
     error::EnclaveKitError,
+    events::{KeyRotated, RotationProposed},
     Guardian, PendingRotation, SmartWallet, COMPRESSED_PUBKEY_LEN, VAULT_SEED, WALLET_SEED,
 };
 
 use enclavekit_encoding::action::Action;
 
+/// What a proposal did, depending on who signed it.
+pub enum Proposal {
+    /// The active key moved the wallet at once.
+    Rotated(KeyRotated),
+    /// A guardian started the timelock.
+    Pending(RotationProposed),
+}
+
+#[event_cpi]
 #[derive(Accounts)]
 #[instruction(wallet_id: [u8; 32])]
 pub struct ProposeRotation<'info> {
@@ -42,7 +52,7 @@ impl<'info> ProposeRotation<'info> {
         authorization: Authorization,
         new_key: [u8; COMPRESSED_PUBKEY_LEN],
         relayer_fee: u64,
-    ) -> Result<()> {
+    ) -> Result<Proposal> {
         // An all-zero active key means "never used" to verify_enclave_authorization.
         require!(
             new_key != [0u8; COMPRESSED_PUBKEY_LEN],
@@ -60,11 +70,17 @@ impl<'info> ProposeRotation<'info> {
             vault_bump,
         )?;
 
-        if signer == self.wallet.active_key {
+        let wallet_id = self.wallet.wallet_id;
+        let proposal = if signer == self.wallet.active_key {
             // The owner still holds the key: no timelock, the swap is immediate.
             self.wallet.active_key = new_key;
             self.wallet.attested = false;
             self.wallet.rotation = None;
+            Proposal::Rotated(KeyRotated {
+                wallet_id,
+                new_key,
+                recovery: false,
+            })
         } else {
             let slot = self
                 .wallet
@@ -85,12 +101,20 @@ impl<'info> ProposeRotation<'info> {
                 );
             }
 
-            self.wallet.rotation = Some(PendingRotation {
+            let pending = PendingRotation {
                 new_key,
                 proposed_at: now,
                 proposed_by: slot as u8,
-            });
-        }
+            };
+            let opens_at = pending.opens_at();
+            self.wallet.rotation = Some(pending);
+            Proposal::Pending(RotationProposed {
+                wallet_id,
+                new_key,
+                guardian: signer,
+                opens_at,
+            })
+        };
 
         refund_relayer(
             &self.wallet,
@@ -99,6 +123,8 @@ impl<'info> ProposeRotation<'info> {
             &self.system_program,
             relayer_fee,
             authorization.max_relayer_fee,
-        )
+        )?;
+
+        Ok(proposal)
     }
 }

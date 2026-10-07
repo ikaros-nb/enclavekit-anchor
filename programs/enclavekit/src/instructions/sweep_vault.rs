@@ -6,11 +6,13 @@ use crate::{
         Authorization,
     },
     error::EnclaveKitError,
+    events::VaultSwept,
     SmartWallet, VAULT_SEED, WALLET_SEED,
 };
 
 use enclavekit_encoding::action::Action;
 
+#[event_cpi]
 #[derive(Accounts)]
 #[instruction(wallet_id: [u8; 32])]
 pub struct SweepVault<'info> {
@@ -55,7 +57,7 @@ impl<'info> SweepVault<'info> {
         authorization: Authorization,
         relayer_fee: u64,
         bumps: &SweepVaultBumps,
-    ) -> Result<()> {
+    ) -> Result<VaultSwept> {
         let action = Action::SweepVault {
             to: self.to.key().to_bytes(),
         };
@@ -72,13 +74,14 @@ impl<'info> SweepVault<'info> {
         let refund = relayer_fee.min(authorization.max_relayer_fee);
         let balance = self.vault.lamports();
         require!(balance >= refund, EnclaveKitError::InsufficientVaultBalance);
+        let lamports = balance - refund;
 
         transfer_from_vault(
             &self.wallet,
             &self.vault,
             self.to.to_account_info(),
             &self.system_program,
-            balance - refund,
+            lamports,
         )?;
         refund_relayer(
             &self.wallet,
@@ -87,6 +90,13 @@ impl<'info> SweepVault<'info> {
             &self.system_program,
             relayer_fee,
             authorization.max_relayer_fee,
-        )
+        )?;
+
+        Ok(VaultSwept {
+            wallet_id: self.wallet.wallet_id,
+            to: self.to.key(),
+            lamports,
+            relayer_fee: refund,
+        })
     }
 }

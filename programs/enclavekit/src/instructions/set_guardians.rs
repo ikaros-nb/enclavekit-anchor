@@ -5,11 +5,13 @@ use crate::{
         refund_relayer, require_active_key, verify_enclave_authorization, Authorization,
     },
     error::EnclaveKitError,
+    events::GuardiansSet,
     Guardian, SmartWallet, MAX_GUARDIANS, VAULT_SEED, WALLET_SEED,
 };
 
 use enclavekit_encoding::action::Action;
 
+#[event_cpi]
 #[derive(Accounts)]
 #[instruction(wallet_id: [u8; 32])]
 pub struct SetGuardians<'info> {
@@ -47,7 +49,7 @@ impl<'info> SetGuardians<'info> {
         guardians: [Guardian; MAX_GUARDIANS],
         relayer_fee: u64,
         bumps: &SetGuardiansBumps,
-    ) -> Result<()> {
+    ) -> Result<GuardiansSet> {
         let action = Action::SetGuardians {
             guardians: guardians.map(Into::into),
         };
@@ -79,6 +81,11 @@ impl<'info> SetGuardians<'info> {
             &self.system_program,
             relayer_fee,
             authorization.max_relayer_fee,
-        )
+        )?;
+
+        Ok(GuardiansSet {
+            wallet_id: self.wallet.wallet_id,
+            guardians,
+        })
     }
 }
