@@ -45,6 +45,9 @@ const LAMPORTS: u64 = 10_000_000;
 const NEW_KEY_SEED: [u8; 32] = [0x44; 32];
 const GUARDIAN_SEED: [u8; 32] = [0x55; 32];
 
+/// Anchor's, for `emit_cpi!`: no program constant exports it.
+const EVENT_AUTHORITY_SEED: &[u8] = b"__event_authority";
+
 // The relayer of every program instruction, and the transaction around the
 // `transfer_sol` case.
 const RELAYER: [u8; 32] = [0x77; 32];
@@ -86,6 +89,9 @@ struct KeyVector {
     program_id: String,
     wallet: Pda,
     vault: Pda,
+    /// Signs the self-CPI of each event: every instruction takes it, then
+    /// the program itself.
+    event_authority: Pda,
 }
 
 #[derive(Serialize)]
@@ -114,6 +120,7 @@ fn key_vector(key: &EnclaveKey) -> KeyVector {
         program_id: program_id.to_string(),
         wallet: Pda::find(&[WALLET_SEED, &wallet_id], &program_id),
         vault: Pda::find(&[VAULT_SEED, &wallet_id], &program_id),
+        event_authority: Pda::find(&[EVENT_AUTHORITY_SEED], &program_id),
     }
 }
 
@@ -415,6 +422,7 @@ fn program_instruction(action: &Action, wallet_id: [u8; 32]) -> Instruction {
     let relayer = Pubkey::new_from_array(RELAYER);
     let instructions_sysvar = solana_instructions_sysvar::ID;
     let system_program = system_program::ID;
+    let event_authority = Pubkey::find_program_address(&[EVENT_AUTHORITY_SEED], &program_id).0;
 
     let (data, accounts) = match action {
         Action::TransferSol { to, lamports } => (
@@ -434,6 +442,8 @@ fn program_instruction(action: &Action, wallet_id: [u8; 32]) -> Instruction {
                 relayer,
                 instructions_sysvar,
                 system_program,
+                event_authority,
+                program: program_id,
             }
             .to_account_metas(None),
         ),
@@ -453,6 +463,8 @@ fn program_instruction(action: &Action, wallet_id: [u8; 32]) -> Instruction {
                 relayer,
                 instructions_sysvar,
                 system_program,
+                event_authority,
+                program: program_id,
             }
             .to_account_metas(None),
         ),
@@ -471,6 +483,8 @@ fn program_instruction(action: &Action, wallet_id: [u8; 32]) -> Instruction {
                 relayer,
                 instructions_sysvar,
                 system_program,
+                event_authority,
+                program: program_id,
             }
             .to_account_metas(None),
         ),
@@ -490,6 +504,8 @@ fn program_instruction(action: &Action, wallet_id: [u8; 32]) -> Instruction {
                 relayer,
                 instructions_sysvar,
                 system_program,
+                event_authority,
+                program: program_id,
             }
             .to_account_metas(None),
         ),
@@ -509,6 +525,8 @@ fn program_instruction(action: &Action, wallet_id: [u8; 32]) -> Instruction {
                 relayer,
                 instructions_sysvar,
                 system_program,
+                event_authority,
+                program: program_id,
             }
             .to_account_metas(None),
         ),
@@ -528,6 +546,8 @@ fn program_instruction(action: &Action, wallet_id: [u8; 32]) -> Instruction {
                 relayer,
                 instructions_sysvar,
                 system_program,
+                event_authority,
+                program: program_id,
             }
             .to_account_metas(None),
         ),
@@ -540,7 +560,8 @@ fn program_instruction(action: &Action, wallet_id: [u8; 32]) -> Instruction {
     }
 }
 
-/// Permissionless: only the wallet's state, no precompile, no relayer account.
+/// Permissionless: the wallet's state and the event accounts, no precompile,
+/// no relayer account.
 fn confirm_rotation_instruction(wallet_id: [u8; 32]) -> Instruction {
     let program_id = enclavekit::id();
     Instruction::new_with_bytes(
@@ -551,6 +572,8 @@ fn confirm_rotation_instruction(wallet_id: [u8; 32]) -> Instruction {
         .data(),
         enclavekit::accounts::ConfirmRotation {
             wallet: Pubkey::find_program_address(&[WALLET_SEED, &wallet_id], &program_id).0,
+            event_authority: Pubkey::find_program_address(&[EVENT_AUTHORITY_SEED], &program_id).0,
+            program: program_id,
         }
         .to_account_metas(None),
     )

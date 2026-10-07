@@ -10,5 +10,9 @@
   "vault": {
     "address": "hYEjxsHxt6UeiMra3eqTxzuWKTWMbC7Q4qjZLV5NpZK",
     "bump": 255
+  },
+  "event_authority": {
+    "address": "379q2cQ1cdxigVA1Cs27XxcBKiiNExU2RQGCCNcxYJMW",
+    "bump": 252
   }
 }

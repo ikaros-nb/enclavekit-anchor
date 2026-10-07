@@ -36,6 +36,16 @@
             "pubkey": "11111111111111111111111111111111",
             "is_signer": false,
             "is_writable": false
+          },
+          {
+            "pubkey": "379q2cQ1cdxigVA1Cs27XxcBKiiNExU2RQGCCNcxYJMW",
+            "is_signer": false,
+            "is_writable": false
+          },
+          {
+            "pubkey": "dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY",
+            "is_signer": false,
+            "is_writable": false
           }
         ],
         "discriminator": "4e0aecf76d75154c",
@@ -69,6 +79,16 @@
           },
           {
             "pubkey": "11111111111111111111111111111111",
+            "is_signer": false,
+            "is_writable": false
+          },
+          {
+            "pubkey": "379q2cQ1cdxigVA1Cs27XxcBKiiNExU2RQGCCNcxYJMW",
+            "is_signer": false,
+            "is_writable": false
+          },
+          {
+            "pubkey": "dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY",
             "is_signer": false,
             "is_writable": false
           }
@@ -106,6 +126,16 @@
             "pubkey": "11111111111111111111111111111111",
             "is_signer": false,
             "is_writable": false
+          },
+          {
+            "pubkey": "379q2cQ1cdxigVA1Cs27XxcBKiiNExU2RQGCCNcxYJMW",
+            "is_signer": false,
+            "is_writable": false
+          },
+          {
+            "pubkey": "dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY",
+            "is_signer": false,
+            "is_writable": false
           }
         ],
         "discriminator": "21b5192b642238fa",
@@ -139,6 +169,16 @@
           },
           {
             "pubkey": "11111111111111111111111111111111",
+            "is_signer": false,
+            "is_writable": false
+          },
+          {
+            "pubkey": "379q2cQ1cdxigVA1Cs27XxcBKiiNExU2RQGCCNcxYJMW",
+            "is_signer": false,
+            "is_writable": false
+          },
+          {
+            "pubkey": "dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY",
             "is_signer": false,
             "is_writable": false
           }
@@ -181,6 +221,16 @@
             "pubkey": "11111111111111111111111111111111",
             "is_signer": false,
             "is_writable": false
+          },
+          {
+            "pubkey": "379q2cQ1cdxigVA1Cs27XxcBKiiNExU2RQGCCNcxYJMW",
+            "is_signer": false,
+            "is_writable": false
+          },
+          {
+            "pubkey": "dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY",
+            "is_signer": false,
+            "is_writable": false
           }
         ],
         "discriminator": "895c09018cedd68c",
@@ -221,6 +271,16 @@
             "pubkey": "11111111111111111111111111111111",
             "is_signer": false,
             "is_writable": false
+          },
+          {
+            "pubkey": "379q2cQ1cdxigVA1Cs27XxcBKiiNExU2RQGCCNcxYJMW",
+            "is_signer": false,
+            "is_writable": false
+          },
+          {
+            "pubkey": "dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY",
+            "is_signer": false,
+            "is_writable": false
           }
         ],
         "discriminator": "23d4eae0f4d01fcc",
@@ -236,6 +296,16 @@
             "pubkey": "EKyNGE7ecVLS8GYLf13LypzugwLbRQuRVNvNQdu9jQxF",
             "is_signer": false,
             "is_writable": true
+          },
+          {
+            "pubkey": "379q2cQ1cdxigVA1Cs27XxcBKiiNExU2RQGCCNcxYJMW",
+            "is_signer": false,
+            "is_writable": false
+          },
+          {
+            "pubkey": "dG4h3aizVEW1bKjzkGsfk6zqcfa2MVn2DjavPniesSY",
+            "is_signer": false,
+            "is_writable": false
           }
         ],
         "discriminator": "8125660f8f2371f6",
