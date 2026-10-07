@@ -94,4 +94,21 @@ pub mod enclavekit {
     pub fn confirm_rotation(ctx: Context<ConfirmRotation>, _wallet_id: [u8; 32]) -> Result<()> {
         ctx.accounts.confirm()
     }
+
+    pub fn sweep_vault(
+        ctx: Context<SweepVault>,
+        wallet_id: [u8; 32],
+        nonce: u64,
+        expires_at: i64,
+        max_relayer_fee: u64,
+        relayer_fee: u64,
+    ) -> Result<()> {
+        let authorization = Authorization {
+            wallet_id,
+            nonce,
+            expires_at,
+            max_relayer_fee,
+        };
+        ctx.accounts.sweep(authorization, relayer_fee, &ctx.bumps)
+    }
 }
