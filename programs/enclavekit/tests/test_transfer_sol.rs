@@ -1,7 +1,7 @@
 mod common;
 
 use anchor_lang::error::ErrorCode;
-use anchor_lang::prelude::Pubkey;
+use anchor_lang::prelude::{Pubkey, Rent};
 use anchor_lang::solana_program::instruction::Instruction;
 use common::{
     assert_failed_at, assert_program_error, vault_pda, wallet_pda, EnclaveKey, EnclaveRequest, Env,
@@ -11,8 +11,6 @@ use enclavekit::error::EnclaveKitError;
 use enclavekit_encoding::preimage::PROGRAM_ID_OFFSET;
 use litesvm::types::{FailedTransactionMetadata, TransactionMetadata};
 use solana_signer::Signer;
-use solana_system_interface::error::SystemError;
-use solana_transaction_error::TransactionError;
 
 const VAULT_FUNDING: u64 = 1_000_000_000;
 const LAMPORTS: u64 = 100_000_000;
@@ -327,33 +325,61 @@ fn rejects_a_refund_account_that_did_not_sign() {
     assert_failed_at(&failed, PROGRAM_INDEX, &format!("Custom({code})"));
 }
 
+// Vault balance: checked before any transfer, against the signed cap.
+
+/// What a system account must keep unless it holds exactly 0.
+fn vault_rent() -> u64 {
+    Rent::default().minimum_balance(0)
+}
+
 #[test]
 fn rejects_when_the_vault_cannot_cover_the_amount() {
     let mut scenario = Scenario::with_vault(LAMPORTS - 1);
     let request = scenario.request.clone();
 
     let failed = scenario.try_send(&request).unwrap_err();
-    // The first CPI fails inside System; its error surfaces as ours.
-    let code = SystemError::ResultWithNegativeLamports as u32;
-    assert_failed_at(&failed, PROGRAM_INDEX, &format!("Custom({code})"));
+    assert_program_error(&failed, EnclaveKitError::InsufficientVaultBalance);
 }
 
 #[test]
 fn rejects_when_the_vault_would_be_left_below_rent() {
-    // Both CPIs succeed and leave 1 lamport in the vault. A system account
-    // must hold the rent-exempt minimum or exactly 0, so the runtime rejects
-    // the whole transaction at the end, without any InstructionError.
+    // The runtime would refuse it too, but only once both transfers ran.
     let mut scenario = Scenario::with_vault(LAMPORTS + RELAYER_FEE + 1);
     let request = scenario.request.clone();
 
     let failed = scenario.try_send(&request).unwrap_err();
-    assert!(
-        matches!(
-            failed.err,
-            TransactionError::InsufficientFundsForRent { .. }
-        ),
-        "expected InsufficientFundsForRent, got {:?}\n{:#?}",
-        failed.err,
-        failed.meta.logs
+    assert_program_error(&failed, EnclaveKitError::InsufficientVaultBalance);
+}
+
+#[test]
+fn rejects_a_transfer_that_would_empty_the_vault() {
+    // The runtime accepts a system account left at exactly 0.
+    let mut scenario = Scenario::with_vault(LAMPORTS + RELAYER_FEE);
+    let request = scenario.request.clone();
+
+    let failed = scenario.try_send(&request).unwrap_err();
+    assert_program_error(&failed, EnclaveKitError::InsufficientVaultBalance);
+}
+
+#[test]
+fn rejects_when_the_vault_covers_the_refund_but_not_the_cap() {
+    let mut scenario = Scenario::with_vault(LAMPORTS + RELAYER_FEE + vault_rent());
+    let request = scenario.request.clone();
+
+    let failed = scenario.try_send(&request).unwrap_err();
+    assert_program_error(&failed, EnclaveKitError::InsufficientVaultBalance);
+}
+
+#[test]
+fn accepts_a_vault_that_covers_the_amount_the_cap_and_its_rent() {
+    let funding = LAMPORTS + MAX_RELAYER_FEE + vault_rent();
+    let mut scenario = Scenario::with_vault(funding);
+    let request = scenario.request.clone();
+
+    scenario.send(&request);
+
+    assert_eq!(
+        scenario.env.balance(&vault_pda(&request.wallet_id)),
+        funding - LAMPORTS - RELAYER_FEE
     );
 }

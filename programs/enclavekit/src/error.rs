@@ -38,4 +38,6 @@ pub enum EnclaveKitError {
     RotationTooEarly,
     #[msg("The rotation window has closed")]
     RotationExpired,
+    #[msg("The vault cannot cover the amount, the fee cap and its own rent")]
+    InsufficientVaultBalance,
 }

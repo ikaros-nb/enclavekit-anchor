@@ -5,6 +5,7 @@ use crate::{
         refund_relayer, require_active_key, transfer_from_vault, verify_enclave_authorization,
         Authorization,
     },
+    error::EnclaveKitError,
     SmartWallet, VAULT_SEED, WALLET_SEED,
 };
 
@@ -65,6 +66,19 @@ impl<'info> TransferSol<'info> {
             bumps.vault,
         )?;
         require_active_key(&self.wallet, &signer)?;
+
+        // Against the cap the user signed, not the refund the relayer asks:
+        // whatever it asks, the transfer fits. The runtime alone would let
+        // the vault end at exactly 0; emptying it is `sweep_vault`'s job.
+        let rent = Rent::get()?.minimum_balance(0);
+        let required = lamports
+            .checked_add(authorization.max_relayer_fee)
+            .and_then(|sum| sum.checked_add(rent))
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        require!(
+            self.vault.lamports() >= required,
+            EnclaveKitError::InsufficientVaultBalance
+        );
 
         transfer_from_vault(
             &self.wallet,
