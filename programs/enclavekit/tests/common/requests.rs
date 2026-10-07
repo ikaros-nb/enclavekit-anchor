@@ -360,6 +360,58 @@ impl EnclaveRequest for SweepVaultRequest {
     }
 }
 
+/// Everything one `close_wallet` call needs
+#[derive(Clone)]
+pub struct CloseWalletRequest {
+    pub wallet_id: [u8; 32],
+    pub to: Pubkey,
+    pub nonce: u64,
+    pub expires_at: i64,
+    pub max_relayer_fee: u64,
+    /// Asked by the relayer, outside the signed bytes.
+    pub relayer_fee: u64,
+}
+
+impl EnclaveRequest for CloseWalletRequest {
+    fn authorization(&self) -> Authorization {
+        Authorization {
+            wallet_id: self.wallet_id,
+            nonce: self.nonce,
+            expires_at: self.expires_at,
+            max_relayer_fee: self.max_relayer_fee,
+        }
+    }
+
+    fn action(&self) -> Action {
+        Action::CloseWallet {
+            to: self.to.to_bytes(),
+        }
+    }
+
+    fn instruction(&self, relayer: &Pubkey) -> Instruction {
+        Instruction::new_with_bytes(
+            enclavekit::id(),
+            &enclavekit::instruction::CloseWallet {
+                wallet_id: self.wallet_id,
+                nonce: self.nonce,
+                expires_at: self.expires_at,
+                max_relayer_fee: self.max_relayer_fee,
+                relayer_fee: self.relayer_fee,
+            }
+            .data(),
+            enclavekit::accounts::CloseWallet {
+                wallet: wallet_pda(&self.wallet_id),
+                vault: vault_pda(&self.wallet_id),
+                to: self.to,
+                relayer: *relayer,
+                instructions_sysvar: solana_instructions_sysvar::ID,
+                system_program: system_program::ID,
+            }
+            .to_account_metas(None),
+        )
+    }
+}
+
 /// `confirm_rotation` alone: nothing to sign, anyone may send it.
 pub fn confirm_rotation_instruction(wallet_id: &[u8; 32]) -> Instruction {
     Instruction::new_with_bytes(
