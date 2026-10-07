@@ -13,16 +13,20 @@ use anchor_lang::solana_program::{
     instruction::{AccountMeta, Instruction},
     system_program,
 };
-use anchor_lang::{InstructionData, ToAccountMetas};
+use anchor_lang::{AccountSerialize, Discriminator, InstructionData, ToAccountMetas};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
-use enclavekit::{VAULT_SEED, WALLET_SEED};
+use enclavekit::{
+    GuardianKind, GuardianSlot, PendingRotation, RotationSlot, SmartWallet, MAX_GUARDIANS,
+    VAULT_SEED, WALLET_SEED,
+};
 use enclavekit_encoding::{
-    action::Action, action::Guardian, preimage::Preimage, wallet::wallet_id,
+    action::Action, action::Guardian, preimage::Preimage, state, wallet::wallet_id,
 };
 use p256::ecdsa::{signature::Signer as _, Signature, SigningKey};
 use p256::elliptic_curve::sec1::ToSec1Point;
 use serde::{Serialize, Serializer};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use solana_hash::Hash;
 use solana_message::{Message, VersionedMessage};
 use solana_secp256r1_program::new_secp256r1_instruction_with_signature;
@@ -55,6 +59,12 @@ const BLOCKHASH: [u8; 32] = [0x88; 32];
 /// Asked by the relayer, outside the signed bytes.
 const RELAYER_FEE: u64 = MAX_RELAYER_FEE;
 
+// The guardians and the rotation of the `recovering` state.
+const PASSKEY_SEED: [u8; 32] = [0x66; 32];
+/// The domain a passkey is bound to, its relying party.
+const RP_ID: &str = "example.com";
+const PROPOSED_AT: i64 = 1_699_000_000;
+
 fn main() {
     let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../vectors");
     fs::create_dir_all(&out).expect("create vectors/");
@@ -76,6 +86,7 @@ fn vectors() -> Vec<(&'static str, String)> {
         ("high_s.json", render(&high_s_vector(&key))),
         ("transaction.json", render(&transaction_vector(&key))),
         ("instructions.json", render(&instructions_vector(&key))),
+        ("state.json", render(&state_vector(&key))),
     ]
 }
 
@@ -585,6 +596,206 @@ fn program_guardian(guardian: &Guardian) -> enclavekit::Guardian {
         Guardian::None => enclavekit::Guardian::None,
         Guardian::P256(key) => enclavekit::Guardian::P256(*key),
         Guardian::WebAuthn(key) => enclavekit::Guardian::WebAuthn(*key),
+    }
+}
+
+// --- state.json -----------------------------------------------------------
+
+/// The data of the wallet's state account, as `getAccountInfo` returns it,
+/// encoded by Anchor itself, with the offset of every field.
+#[derive(Serialize)]
+struct StateVector {
+    /// `sha256("account:SmartWallet")[..8]`, the first 8 bytes of `data`.
+    discriminator: Hex,
+    /// The same for every state: the `dataSize` filter of `getProgramAccounts`.
+    size: usize,
+    /// From `enclavekit_encoding::state`, the `memcmp` filter offsets.
+    offsets: StateOffsets,
+    /// The passkey guardian of `recovering` is bound to it: its `rp_id_hash`
+    /// is the SHA-256 of these bytes.
+    rp_id: &'static str,
+    states: Vec<NamedStateVector>,
+}
+
+#[derive(Serialize)]
+struct StateOffsets {
+    wallet_id: usize,
+    active_key: usize,
+    nonce: usize,
+    attested: usize,
+    guardians: Vec<GuardianSlotOffsets>,
+    rotation: RotationOffsets,
+    state_bump: usize,
+    vault_bump: usize,
+}
+
+#[derive(Serialize)]
+struct GuardianSlotOffsets {
+    kind: usize,
+    key: usize,
+    rp_id_hash: usize,
+}
+
+#[derive(Serialize)]
+struct RotationOffsets {
+    pending: usize,
+    new_key: usize,
+    proposed_at: usize,
+    proposed_by: usize,
+}
+
+#[derive(Serialize)]
+struct NamedStateVector {
+    name: &'static str,
+    fields: StateFields,
+    data: Hex,
+}
+
+/// Every field as stored: an empty slot shows its zeros.
+#[derive(Serialize)]
+struct StateFields {
+    wallet_id: Hex,
+    active_key: Hex,
+    nonce: u64,
+    attested: bool,
+    guardians: Vec<GuardianSlotFields>,
+    rotation: RotationFields,
+    state_bump: u8,
+    vault_bump: u8,
+}
+
+#[derive(Serialize)]
+struct GuardianSlotFields {
+    /// "None", "P256" or "WebAuthn", stored as 0, 1 or 2.
+    kind: &'static str,
+    key: Hex,
+    rp_id_hash: Hex,
+}
+
+#[derive(Serialize)]
+struct RotationFields {
+    pending: bool,
+    new_key: Hex,
+    proposed_at: i64,
+    /// The proposing guardian's slot.
+    proposed_by: u8,
+}
+
+impl From<&SmartWallet> for StateFields {
+    fn from(wallet: &SmartWallet) -> Self {
+        let rotation = &wallet.rotation;
+        Self {
+            wallet_id: wallet.wallet_id.into(),
+            active_key: wallet.active_key.into(),
+            nonce: wallet.nonce,
+            attested: wallet.attested,
+            guardians: wallet
+                .guardians
+                .iter()
+                .map(|slot| GuardianSlotFields {
+                    kind: match slot.kind {
+                        GuardianKind::None => "None",
+                        GuardianKind::P256 => "P256",
+                        GuardianKind::WebAuthn => "WebAuthn",
+                    },
+                    key: slot.key.into(),
+                    rp_id_hash: slot.rp_id_hash.into(),
+                })
+                .collect(),
+            rotation: RotationFields {
+                pending: rotation.pending,
+                new_key: rotation.proposal.new_key.into(),
+                proposed_at: rotation.proposal.proposed_at,
+                proposed_by: rotation.proposal.proposed_by,
+            },
+            state_bump: wallet.state_bump,
+            vault_bump: wallet.vault_bump,
+        }
+    }
+}
+
+/// Two wallets of the test key:
+/// - `created`, as its first action leaves it: no guardian, no rotation;
+/// - `recovering`, with slot 0 empty, a device in slot 1 and a passkey in
+///   slot 2, and the device's proposal waiting for its timelock. No v1
+///   wallet holds a passkey, `set_guardians` refuses it, but its slot is
+///   already in the layout.
+fn state_vector(key: &EnclaveKey) -> StateVector {
+    let program_id = enclavekit::id();
+    let wallet_id = key.wallet_id();
+    let created = SmartWallet {
+        wallet_id,
+        active_key: key.compressed_pubkey(),
+        nonce: 1,
+        attested: false,
+        guardians: [GuardianSlot::EMPTY; MAX_GUARDIANS],
+        rotation: RotationSlot::EMPTY,
+        state_bump: Pubkey::find_program_address(&[WALLET_SEED, &wallet_id], &program_id).1,
+        vault_bump: Pubkey::find_program_address(&[VAULT_SEED, &wallet_id], &program_id).1,
+    };
+    let recovering = SmartWallet {
+        nonce: NONCE,
+        attested: true,
+        guardians: [
+            GuardianSlot::EMPTY,
+            GuardianSlot::from(enclavekit::Guardian::P256(
+                EnclaveKey::from_seed(GUARDIAN_SEED).compressed_pubkey(),
+            )),
+            GuardianSlot {
+                kind: GuardianKind::WebAuthn,
+                key: EnclaveKey::from_seed(PASSKEY_SEED).compressed_pubkey(),
+                rp_id_hash: Sha256::digest(RP_ID).into(),
+            },
+        ],
+        rotation: RotationSlot::new(PendingRotation {
+            new_key: EnclaveKey::from_seed(NEW_KEY_SEED).compressed_pubkey(),
+            proposed_at: PROPOSED_AT,
+            proposed_by: 1,
+        }),
+        ..created
+    };
+
+    StateVector {
+        discriminator: SmartWallet::DISCRIMINATOR.to_vec().into(),
+        size: state::STATE_LEN,
+        offsets: StateOffsets {
+            wallet_id: state::WALLET_ID_OFFSET,
+            active_key: state::ACTIVE_KEY_OFFSET,
+            nonce: state::NONCE_OFFSET,
+            attested: state::ATTESTED_OFFSET,
+            guardians: (0..MAX_GUARDIANS)
+                .map(|i| GuardianSlotOffsets {
+                    kind: state::guardian_kind_offset(i),
+                    key: state::guardian_key_offset(i),
+                    rp_id_hash: state::guardian_rp_id_hash_offset(i),
+                })
+                .collect(),
+            rotation: RotationOffsets {
+                pending: state::ROTATION_OFFSET,
+                new_key: state::ROTATION_NEW_KEY_OFFSET,
+                proposed_at: state::ROTATION_PROPOSED_AT_OFFSET,
+                proposed_by: state::ROTATION_PROPOSED_BY_OFFSET,
+            },
+            state_bump: state::STATE_BUMP_OFFSET,
+            vault_bump: state::VAULT_BUMP_OFFSET,
+        },
+        rp_id: RP_ID,
+        states: vec![
+            named_state("created", &created),
+            named_state("recovering", &recovering),
+        ],
+    }
+}
+
+fn named_state(name: &'static str, wallet: &SmartWallet) -> NamedStateVector {
+    let mut data = Vec::new();
+    wallet
+        .try_serialize(&mut data)
+        .expect("serialise into a Vec");
+    NamedStateVector {
+        name,
+        fields: wallet.into(),
+        data: data.into(),
     }
 }
 

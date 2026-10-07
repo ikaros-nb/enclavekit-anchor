@@ -1634,6 +1634,7 @@ dependencies = [
  "p256",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "solana-hash",
  "solana-instructions-sysvar 3.0.1",
  "solana-message",

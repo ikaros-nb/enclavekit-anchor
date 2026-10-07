@@ -76,6 +76,7 @@ Tests read the rotation constants from the crate they are compiled with, so alwa
 | `high_s.json` | One signature in high-S and low-S form. |
 | `transaction.json` | The `transfer_sol` case wrapped in the unsigned transaction handed to Kora: program instruction, message bytes and base64. |
 | `instructions.json` | The program instruction of every case of `actions.json` (accounts, the two event accounts included, discriminator, data), plus `confirm_rotation`, which no enclave signs. |
+| `state.json` | The state account's data, encoded by Anchor, with the offset of every field: a new wallet, and a wallet with guardians and a pending rotation. |
 
 ```bash
 cargo run -p gen-vectors      # regenerate after any change to the encoding
