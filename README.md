@@ -2,7 +2,7 @@
 
 Solana smart wallet controlled by an iPhone Secure Enclave P-256 key.
 
-The user signs an action with the enclave key. The program checks the signature through the `secp256r1` precompile and executes the action from the wallet's vault. A relayer (Kora) pays the transaction fee and is refunded from the vault. The active key can move the wallet to another key at once; guardians can rotate it after a timelock.
+The user signs an action with the enclave key. The program checks the signature through the `secp256r1` precompile and executes the action from the wallet's vault. A relayer (Kora) pays the transaction fee and is refunded from the vault. The active key can move the wallet to another key at once; guardians can rotate it after a timelock. Every field of the wallet's state sits at a fixed offset, so a device finds the wallets that name its key on-chain, without being told their ID.
 
 - `programs/enclavekit`: the Anchor program.
 - `crates/enclavekit-encoding`: action and preimage encoding shared with the Swift SDK. No Solana dependency.
@@ -29,6 +29,46 @@ The [Program IDL tab](https://explorer.solana.com/address/dG4h3aizVEW1bKjzkGsfk6
 Every signed instruction carries `wallet_id`, `nonce`, `expires_at` and `max_relayer_fee`, and is preceded in the transaction by the `secp256r1` precompile instruction.
 
 The relayer's refund comes from the vault and never exceeds `max_relayer_fee`. `transfer_sol` refuses an amount the vault cannot cover together with `max_relayer_fee` and its own rent-exempt minimum: only `sweep_vault` and `close_wallet` empty it. `close_wallet` also caps the refund at the vault's balance, so an emptied wallet can still close.
+
+## State account
+
+The wallet's state is a PDA of `["wallet", wallet_id]`, 325 bytes, and its vault a PDA of `["vault", wallet_id]`. Every field has a fixed size: an empty guardian slot, or no pending rotation, is all zeros, never a shorter encoding. Each field therefore sits at the same offset in every wallet:
+
+```text
+offset  size  field
+0       8     discriminator
+8       32    wallet_id
+40      33    active_key
+73      8     nonce                 u64 LE
+81      1     attested
+82      198   guardians             3 slots of 66 bytes, below
+280     1     rotation pending      0 or 1
+281     33    rotation new_key
+314     8     rotation proposed_at  i64 LE
+322     1     rotation proposed_by  guardian slot
+323     1     state_bump
+324     1     vault_bump
+
+guardian slot i, at 82 + 66·i
++0      1     kind                  0 none, 1 P256, 2 WebAuthn
++1      33    key
++34     32    rp_id_hash            SHA-256 of a passkey's rpId, zeros otherwise
+```
+
+A device finds its wallets from its own key with `getProgramAccounts`, filtered on `dataSize: 325` and one `memcmp`:
+
+| The device looks for | `memcmp` |
+|---|---|
+| The wallets its key signs for | offset 40: the key |
+| The wallets that name it as guardian | offset 82 + 66·i, for i = 0, 1, 2: `01`, then the key |
+| The wallets a guardian proposes to move to it | offset 280: `01`, then the key |
+
+- The RPC takes the `memcmp` bytes in base58.
+- The program accepts the same key in two slots: count each wallet once.
+- A proposal past its window still matches. It lapses `ROTATION_DELAY` (in the IDL) plus 7 days after `proposed_at`.
+- The `WebAuthn` kind is reserved for passkey guardians: `set_guardians` refuses it for now.
+
+The offsets are in `enclavekit_encoding::state`, and in `vectors/state.json` for the SDKs. A compile-time check compares the size with the Anchor struct, and `tests/test_state_layout.rs` reads every field at its offset in an account the program wrote. State accounts made before this layout are 229 bytes long: the program can no longer read them, and the size filter leaves them out.
 
 ## Events
 
@@ -86,6 +126,8 @@ cargo test -p gen-vectors     # fails when the committed vectors are stale
 ## Relayer
 
 `kora/` holds the Kora config: allowed programs, fee payer policy, free pricing. The signer is a devnet keypair passed through the `KORA_PRIVATE_KEY` environment variable.
+
+`max_allowed_lamports = 2500000` caps what Kora advances in one transaction. The largest advance is a wallet's first action: the state's rent, 2 301 240 lamports on devnet for 325 bytes, plus the fee. The vault pays both back in the same transaction. Kora reads the config at startup only: restart it after a change.
 
 ```bash
 cargo install kora-cli@2.0.5
