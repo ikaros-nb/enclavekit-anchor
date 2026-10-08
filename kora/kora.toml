@@ -13,7 +13,7 @@ estimate_transaction_fee = false
 get_supported_tokens = false
 
 [validation]
-max_allowed_lamports = 2000000
+max_allowed_lamports = 2500000
 max_signatures = 2
 price_source = "Mock"
 allow_durable_transactions = false
